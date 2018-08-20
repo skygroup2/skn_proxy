@@ -24,6 +24,7 @@ defmodule SknProxy.MixProject do
       {:skn_lib, git: "git@gitlab.com:tr.hoan00/skn_lib.git", branch: "master"},
       {:skn_proto, git: "git@gitlab.com:tr.hoan00/skn_proto.git", branch: "master"},
       {:skn_bus, git: "git@gitlab.com:tr.hoan00/skn_bus.git", branch: "master"},
+      {:lager, "~> 3.6", override: true},
       {:ecto, "~> 2.2"}
     ]
   end
