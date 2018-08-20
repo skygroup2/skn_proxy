@@ -1,0 +1,834 @@
+defmodule ProxyGroup do
+  @moduledoc """
+      Manager a group of proxy, if proxy die, grab new one from database
+  """
+  use GenServer
+  require Logger
+
+  @country_list [:ae , :af , :ag , :ai , :al , :am , :an , :ao , :aq , :ar , :as , :at , :au , :aw , :ax , :az , :ba , :bb , :bd , :be , :bf , :bg , :bh , :bi , :bj , :bl , :bm , :bn , :bo , :br , :bs , :bt , :bv , :bw , :by , :bz , :ca , :cc , :cd , :cf , :cg , :ch , :ci , :ck , :cl , :cm , :cn , :co , :cr , :cu , :cv , :cx , :cy , :cz , :de , :dj , :dk , :dm , :do , :dz , :ec , :ee , :eg , :eh , :er , :es , :et , :fi , :fj , :fk , :fm , :fo , :fr , :ga , :gb , :gd , :ge , :gf , :gg , :gh , :gi , :gl , :gm , :gn , :gp , :gq , :gr , :gs , :gt , :gu , :gw , :gy , :hk , :hm , :hn , :hr , :ht , :hu , :id , :ie , :il , :im , :in , :io , :iq , :ir , :is , :it , :je , :jm , :jo , :jp , :ke , :kg , :kh , :ki , :km , :kn , :kp , :kr , :kw , :ky , :kz , :la , :lb , :lc , :li , :lk , :lr , :ls , :lt , :lu , :lv , :ly , :ma , :mc , :md , :me , :mf , :mg , :mh , :mk , :ml , :mm , :mn , :mo , :mp , :mq , :mr , :ms , :mt , :mu , :mv , :mw , :mx , :my , :mz , :na , :nc , :ne , :nf , :ng , :ni , :nl , :no , :np , :nr , :nu , :nz , :om , :pa , :pe , :pf , :pg , :ph , :pk , :pl , :pm , :pn , :pr , :ps , :pt , :pw , :py , :qa , :re , :ro , :rs , :ru , :rw , :sa , :sb , :sc , :sd , :se , :sg , :sh , :si , :sj , :sk , :sl , :sm , :sn , :so , :sr , :ss , :st , :sv , :sy , :sz , :tc , :td , :tf , :tg , :th , :tj , :tk , :tl , :tm , :tn , :to , :tr , :tt , :tv , :tw , :tz , :ua , :ug , :um , :us , :uy , :uz , :va , :vc , :ve , :vg , :vi , :vn , :vu , :wf , :ws , :ye , :yt , :za , :zm , :zw]
+  @country_black_list ["ai" , "an" , "ao" , "aq" , "as" , "bl" , "bv" , "cc" , "cf" , "cg" , "ck" , "cu" , "cx" , "dj" , "eh" , "er" , "fk" , "gs" , "gw" , "hm" , "io" , "ki" , "km" , "kp" , "kr" , "kz" , "li" , "ls" , "mf" , "mh" , "ms" , "mw" , "nf" , "nr" , "nu" , "pn" , "pw" , "sb" , "sc" , "sh" , "sj" , "sl" , "sm" , "ss" , "td" , "tf" , "tk" , "tl" , "to" , "tv" , "um" , "va" , "vg" , "vu" , "wf" , "ye" , "xk" , "cn" , "ru" , "tw" , "hk" , "il" , "dz" , "eg" , "id" , "in" , "ir" , "ma" , "pk" , "ps" , "sy" , "th" , "uy" , "tn" , "sa" , "sn" , "bi" , "st" , "gn" , "pg" , "ws" , "ne" , "mp" , "sz" , "lc" , "fm" , "rw" , "bf" , "cd" , "tm" , "lr" , "mr" , "cm" , "et" , "yt" , "az" , "so" , "pm" , "tg" , "vn" , "my" , "ua" , "tr" , "ec" , "do" , "om" , "vi" , "sx" , "kh" , "dm" , "ag" , "bt" , "mc" , "af" , "cv" , "gq" , "bw" , "bd" , "ga" , "gm" , "ml"]
+
+  def force_country_black_list() do
+    default = [ "as", "ad", "ai", "aq", "ag", "aw", "bs", "bh", "bb", "bz", "bm", "bt", "io", "vg", "bn", "cv", "ky", "cx", "cc", "ck", "cw", "dj", "dm", "fk", "fo", "pf", "gi", "gl", "gd", "gu", "gg", "gy", "is", "im", "je", "ki", "li", "lu", "mo", "mv", "mt", "mh", "yt", "fm", "mc", "me", "ms", "nr", "an", "nc", "nu", "mp", "pw", "pn", "bl", "sh", "kn", "lc", "mf", "pm", "vc", "ws", "sm", "st", "sc", "sx", "sb", "sr", "sj", "tk", "to", "tc", "tv", "vi", "vu", "va", "wf", "eh", "xk", "gq"]
+
+    Skn.Config.get(:force_country_black_list, default)
+  end
+
+  def add_force_country_to_black_list(cc) do
+    a = force_country_black_list()
+    a1 = if cc in a, do: a, else: a ++ [cc]
+    Skn.Config.set(:force_country_black_list, a1)
+  end
+
+  def force_replace_country_black_list(botid) do
+    ips = Skn.Config.get(:proxy_ip_country_list)
+    top = Enum.slice(Enum.sort_by(ips, fn {_, x} -> x * -1 end), 0, 5)
+    i = rem(botid, length(top))
+    {cc, _} = Enum.at(top, i)
+    cc
+  end
+
+  def choose(config, botid, cc, idx \\ 0) do
+    proxy = config[:proxy]
+    proxy_auth = config[:proxy_auth]
+
+    case proxy do
+      {:group, id} ->
+        ret = grab_proxy(proxy_to_name({id, nil}), botid, cc, idx)
+        Map.merge(ret, %{proxy_auth: new_proxy_session(ret[:proxy_auth], botid, cc)})
+
+      {:force, proxy, proxy_auth} ->
+        %{
+          proxy: proxy,
+          proxy_auth: new_proxy_session(proxy_auth, botid, cc),
+          proxy_auth_fun:
+            {__MODULE__, :choose, [%{proxy: {:force, proxy, proxy_auth}}, botid, cc, idx]}
+        }
+
+      _ ->
+        %{proxy: proxy, proxy_auth: new_proxy_session(proxy_auth, botid, cc)}
+    end
+  end
+
+  def new_proxy_session(proxy_auth, botid, cc) do
+    case proxy_auth do
+      {:sessioner, x, y} ->
+        seed = Skn.Config.get(:proxy_auth_seq_seed)
+        rnd = Skn.Config.gen_id(:proxy_auth_seq)
+        luminati_is_glob = Skn.Config.get(:luminati_is_glob, true)
+        cc = bot_country(botid, cc)
+
+        if luminati_is_glob == true do
+          {"#{x}-country-#{cc}-session-glob_rand#{seed}#{rnd}", y}
+        else
+          {"#{x}-country-#{cc}-session-rand#{seed}#{rnd}", y}
+        end
+
+      x ->
+        x
+    end
+  end
+
+  def bot_country(id, cc) when is_integer(id) == false do
+    if cc != nil do
+      cc
+    else
+      bot_country(:erlang.phash2(id), cc)
+    end
+  end
+
+  def bot_country(id, cc) do
+    is_master = Skn.Config.get(:master) == node()
+
+    cond do
+      is_master and cc != nil ->
+        cc
+
+      is_master and is_integer(id) ->
+        Enum.at(["us", "ca"], rem(id, 2))
+
+      true ->
+        force = force_country_black_list()
+
+        cond do
+          cc == nil ->
+            s = Skn.Config.get(:proxy_ip_country_size, 1)
+
+            case :ets.lookup(:proxy_country_percent, rem(id, s)) do
+              [{_, cc}] -> cc
+              [] -> Enum.at(["us", "ca"], rem(id, 2))
+            end
+
+          cc in force ->
+            force_replace_country_black_list(id)
+
+          true ->
+            cc
+        end
+    end
+  end
+
+  def update_geo_stats() do
+    bots = :mnesia.dirty_all_keys(:bot_record)
+
+    bx =
+      Enum.map(bots, fn x ->
+        %{config: config} = RWSerializer.read(x)
+        {x, config}
+      end)
+
+    stats =
+      Enum.reduce(bx, %{}, fn {_x, config}, acc ->
+        cx = config[:cc]
+
+        if cx != nil do
+          ct = Map.get(acc, cx, 0) + 1
+          Map.put(acc, cx, ct)
+        else
+          acc
+        end
+      end)
+
+    Skn.Config.set(:bot_geo_stats, stats)
+  end
+
+  def show_geo_stats() do
+    x = Skn.Config.get(:bot_geo_stats, nil)
+
+    if x == nil do
+      update_geo_stats()
+    end
+
+    x = Skn.Config.get(:bot_geo_stats)
+    xx = Map.to_list(x)
+    xxc = Enum.map(xx, fn {_, c} -> c end)
+    sum = Enum.sum(xxc)
+
+    r =
+      Enum.map(xx, fn {c, ct} ->
+        IO.puts("#{c} => #{inspect(ct / sum * 100)}")
+        {c, ct / sum * 100}
+      end)
+
+    r
+  end
+
+  def fix_geo(range0) do
+    range = Enum.to_list(range0)
+    ips = Skn.Config.get(:proxy_ip_country_list)
+    IO.puts("Listing bot ....")
+
+    bots =
+      Enum.map(range, fn x ->
+        %{config: config} =
+          case RWSerializer.read(x) do
+            nil -> RWSerializer.delete(x)
+            a -> a
+          end
+
+        {x, config}
+      end)
+
+    IO.puts("Grouping GEO .....")
+
+    stats =
+      Enum.reduce(bots, %{}, fn {x, config}, acc ->
+        cc = config[:cc]
+
+        if cc != nil do
+          l = Map.get(acc, cc, [])
+          Map.put(acc, cc, [{x, config} | l])
+        else
+          l = Map.get(acc, "NEW", [])
+          Map.put(acc, "NEW", [{x, config} | l])
+        end
+      end)
+
+    scale = length(range)
+    {cmap, _} = mix_geo(ips, scale)
+    IO.puts("Sorting and slicing GEO ....")
+
+    stats1 =
+      Enum.reduce(stats, %{}, fn {cc, l}, acc ->
+        IO.puts("Processing #{cc} ...")
+        count = Map.get(cmap, cc, 0)
+        l = Enum.sort_by(l, fn {_, config} -> Map.get(config, :game_level, 0) end)
+        tcount = length(l) - count
+
+        cond do
+          count == 0 ->
+            pool = Enum.shuffle(Map.get(acc, :pool, []) ++ l)
+            Map.put(acc, :pool, pool)
+
+          tcount > 0 ->
+            IO.puts("#{cc} removing #{tcount} ...")
+            rp = Enum.slice(l, 0, tcount)
+            rm = Enum.slice(l, tcount, length(l) - tcount)
+            pool = Enum.shuffle(Map.get(acc, :pool, []) ++ rp)
+            acc1 = Map.put(acc, cc, rm)
+            Map.put(acc1, :pool, pool)
+
+          true ->
+            Map.put(acc, cc, l)
+        end
+      end)
+
+    total =
+      Enum.reduce(stats1, 0, fn {_, l}, acc ->
+        length(l) + acc
+      end)
+
+    npool =
+      Enum.reduce(Map.drop(stats1, [:pool]), 0, fn {_, l}, acc ->
+        length(l) + acc
+      end)
+
+    pool = stats1[:pool]
+    IO.puts("Appending GEO #{total} +#{total - npool} -#{length(pool)}...")
+
+    x =
+      Enum.reduce(Map.drop(stats1, [:pool]), pool, fn {cc, l}, acc ->
+        count = Map.get(cmap, cc, 0)
+        tcount = count - length(l)
+
+        cond do
+          tcount == 0 ->
+            IO.puts("#{cc} add 0")
+            acc
+
+          tcount < 0 ->
+            IO.puts("#{cc} add #{tcount} opps ..............")
+            acc
+
+          true ->
+            ra = Enum.slice(acc, 0, tcount)
+            rp = Enum.slice(acc, tcount, length(acc) - tcount)
+            IO.puts("#{cc} add #{tcount} vs #{length(ra)}")
+
+            Enum.each(ra, fn {x, config} ->
+              IO.puts("remap id #{x} #{inspect(config[:cc])} => #{inspect(cc)}")
+              config1 = Map.put(config, :cc, cc)
+              RWSerializer.write({x, config1})
+            end)
+
+            rp
+        end
+      end)
+
+    IO.puts("Finishing GEO #{total} +#{total - npool} -#{length(pool)}...")
+    x
+  end
+
+  def assign_geo(range0) do
+    range = Enum.to_list(range0)
+    ips = Skn.Config.get(:proxy_ip_country_list)
+
+    bots =
+      Enum.map(range, fn x ->
+        %{config: config} =
+          case RWSerializer.read(x) do
+            nil -> RWSerializer.delete(x)
+            a -> a
+          end
+
+        {x, config}
+      end)
+
+    stats =
+      Enum.reduce(bots, %{}, fn {x, config}, acc ->
+        cc = config[:cc]
+
+        if cc != nil do
+          l = Map.get(acc, cc, [])
+          Map.put(acc, cc, [{x, config} | l])
+        else
+          l = Map.get(acc, "NEW", [])
+          Map.put(acc, "NEW", [{x, config} | l])
+        end
+      end)
+
+    scale = 250_000
+    IO.puts("Mixing GEO .....")
+    {ccmap, ipc1} = mix_geo(ips, scale)
+    IO.puts("Grouping GEO .....")
+
+    stats1 =
+      Enum.reduce(Map.drop(stats, ["NEW"]), stats, fn {cc, v}, acc ->
+        v1 = Enum.sort_by(v, fn {_x, config} -> Map.get(config, :game_level, 0) * -1 end)
+        IO.puts("Processing #{cc} ...")
+        size = round(Map.get(ccmap, cc, 0) / scale * length(range))
+
+        if size >= length(v1) do
+          v2 = Enum.sort_by(v, fn {x, _} -> x end)
+          Map.put(acc, cc, v2)
+        else
+          v2 = Enum.slice(v1, 0, size)
+          v3 = Enum.slice(v1, size, length(v1) - size)
+          vn = Map.get(acc, "NEW", []) ++ v3
+          vn = Enum.sort_by(vn, fn {x, _} -> x end)
+          v2 = Enum.sort_by(v2, fn {x, _} -> x end)
+          acc1 = Map.put(acc, cc, v2)
+          Map.put(acc1, "NEW", vn)
+        end
+      end)
+
+    IO.puts("Updating idx and GEO ...")
+
+    Enum.reduce(range, stats1, fn x, acc ->
+      i = rem(x, length(ipc1)) + 1
+      {_, cc} = List.keyfind(ipc1, i, 0)
+
+      case Map.get(acc, cc, []) do
+        [] ->
+          [{id, config} | remain] = Map.get(acc, "NEW")
+          IO.puts("map new id #{x} => #{cc} from {#{id}, #{inspect(config[:cc])}}")
+          RWSerializer.write({x, Map.merge(config, %{id: x, cc: cc})})
+          Map.put(acc, "NEW", remain)
+
+        [{id, config} | remain] ->
+          if id != x do
+            IO.puts("map old id #{x} => #{cc} from {#{id}, #{inspect(config[:cc])}}")
+          end
+
+          RWSerializer.write({x, Map.merge(config, %{id: x, cc: cc})})
+          Map.put(acc, cc, remain)
+      end
+    end)
+  end
+
+  def mix_geo(ips, scale \\ 250_000) do
+    ipc = :maps.from_list(Enum.map(ips, fn {x, _} -> {x, 0} end))
+    top = Enum.slice(Enum.sort_by(ips, fn {_, x} -> x * -1 end), 0, 5)
+
+    {ipc1, ipmap1} =
+      Enum.reduce(1..scale, {ipc, []}, fn x, {acc, ipmap} ->
+        i = rem(x, length(ips))
+        ipsx0 = Enum.slice(ips, 0, i)
+        ipsx1 = Enum.slice(ips, i, length(ips) - i)
+        ipsx = ipsx1 ++ ipsx0
+        #            IO.puts "round #{x} => #{inspect ipsx}"
+        ret =
+          Enum.find(ipsx, fn {cc, per} ->
+            count = round(per * scale)
+            count > Map.get(acc, cc, 0)
+          end)
+
+        ccx =
+          case ret do
+            nil ->
+              {cxx0, _} = Enum.random(top)
+              cxx0
+
+            {cxx0, _} ->
+              cxx0
+          end
+
+        count1 = Map.get(acc, ccx, 0) + 1
+        {Map.put(acc, ccx, count1), [{x, ccx} | ipmap]}
+      end)
+
+    {ipc1, Enum.sort_by(ipmap1, fn {x, _} -> x end)}
+  end
+
+  def migrate_geo() do
+    migrated = Skn.Config.get(:migrated, false)
+
+    if migrated == false do
+      if node() == Skn.Config.get(:master) do
+        bots = :mnesia.dirty_all_keys(:bot_record2)
+
+        Enum.each(bots, fn x ->
+          %{config: config} = RWSerializer.read2(x)
+          cc = bot_country(x, nil)
+          config1 = Map.put(config, :cc, cc)
+          RWSerializer.write2({x, config1})
+        end)
+      else
+        bots = :mnesia.dirty_all_keys(:bot_record)
+
+        Enum.each(bots, fn x ->
+          %{config: config} = RWSerializer.read(x)
+          cc = bot_country(x, nil)
+          config1 = Map.put(config, :cc, cc)
+          RWSerializer.write({x, config1})
+        end)
+      end
+
+      Skn.Config.set(:migrated, true)
+    end
+  end
+
+  #    def replace_with(leak, ct) do
+  ##        leak = :ets.match_object(:bot_counter, {{:leak_ip, :_}, :_}) |> Enum.sort_by(fn {_, x} -> -x end)
+  #        c = :ets.tab2list :proxy_country_percent
+  #        Enum.each leak, fn x ->
+  #            rc = Enum.filter c, fn {_, x1} -> x1 == x end
+  #            Enum.each rc, fn {x2, c2} ->
+  #                IO.puts "replace coutry #{c2} with #{ct} at #{x2}"
+  #                :ets.insert(:proxy_country_percent, {x2, ct})
+  #            end
+  #            V1.DB.Counter.delete({:leak_ip, x})
+  #        end
+  #    end
+
+  def replace_banned_country(banned \\ @country_black_list) do
+    c = :ets.tab2list(:proxy_country_percent)
+
+    Enum.each(banned, fn x ->
+      r = Enum.at(["us", "ca", "gb"], rem(:erlang.phash2(x), 3))
+      rc = Enum.filter(c, fn {_, x1} -> x1 == x end)
+
+      Enum.each(rc, fn {x2, c2} ->
+        IO.puts("replace coutry #{c2} with #{r} at #{x2}")
+        :ets.insert(:proxy_country_percent, {x2, r})
+      end)
+    end)
+  end
+
+  def find_banned_country(
+        life \\ -1,
+        filter \\ true,
+        week \\ :all,
+        level \\ 5,
+        age \\ 5 * 3600_000
+      ) do
+    v = :ets.tab2list(:bans_report)
+    ts_f = :erlang.system_time(:millisecond) - age
+
+    v1 =
+      Enum.filter(v, fn {{ts, _id}, info} ->
+        ts > ts_f and ((is_integer(info[:life]) and info[:life] < life) or life == -1) and
+          (info[:week] == week or week == :all) and (info[:level] == nil or info[:level] <= level)
+      end)
+
+    v2 =
+      Enum.reduce(v1, %{}, fn {_k, info}, acc ->
+        c = Map.get(acc, info[:cc], 0) + 1
+        Map.put(acc, info[:cc], c)
+      end)
+
+    v3 = Map.to_list(v2)
+
+    v3 =
+      if filter == true do
+        Enum.filter(v3, fn {x, _} -> not (String.downcase(x) in force_country_black_list()) end)
+      else
+        v3
+      end
+
+    Enum.sort_by(v3, fn {_, x} -> -x end)
+  end
+
+  def find_country_black(fun, each_try, decide_black) do
+    country = @country_list
+
+    ct =
+      Enum.map(country, fn c ->
+        Task.async(fn ->
+          tasks =
+            Enum.map(1..each_try, fn x ->
+              Task.async(fn ->
+                {x, fun.(c)}
+              end)
+            end)
+
+          rets =
+            Enum.map(tasks, fn x ->
+              Task.yield(x, 300_000)
+            end)
+
+          {o, e} =
+            Enum.reduce(rets, {0, 0}, fn x, {o0, e0} ->
+              case x do
+                {:ok, {_, :ok}} ->
+                  {o0 + 1, e0}
+
+                {:ok, _} ->
+                  {o0, e0 + 1}
+
+                exp ->
+                  IO.puts("yeild error #{inspect(exp)}")
+                  {o0, e0}
+              end
+            end)
+
+          {c, o, e}
+        end)
+      end)
+
+    cr =
+      Enum.map(ct, fn x ->
+        Task.yield(x, 300_000)
+      end)
+
+    Enum.reduce(cr, [], fn x, acc ->
+      case x do
+        {:ok, {c, _o, e}} ->
+          if e >= decide_black do
+            [if(is_binary(c), do: c, else: :erlang.atom_to_binary(c, :latin1)) | acc]
+          else
+            acc
+          end
+
+        exp ->
+          IO.puts("yeild error #{inspect(exp)}")
+          acc
+      end
+    end)
+  end
+
+  def calc_country_percent() do
+    ipk = :mnesia.dirty_all_keys(:proxy_ip2)
+
+    ips =
+      Enum.reduce(ipk, %{}, fn ip, acc ->
+        case Skn.DB.ProxyIP2.read(ip) do
+          %{info: %{status: status, geo: %{"country_code" => cc}}} when byte_size(cc) == 2 ->
+            if status == :ok do
+              cc = String.downcase(cc)
+              cn = Map.get(acc, cc, 0) + 1
+              Map.put(acc, cc, cn)
+            else
+              acc
+            end
+
+          _ ->
+            if byte_size(ip) >= 45 do
+              Skn.DB.ProxyIP2.delete(ip)
+            else
+              IO.puts("#{inspect(ip)} country code ????")
+            end
+
+            acc
+        end
+      end)
+
+    country_black_list = Skn.Config.get(:proxy_ip_country_black_list, @country_black_list)
+    ips = Enum.filter(ips, fn {x, _} -> not (x in country_black_list) end)
+    ipc = Enum.map(ips, fn {_, x} -> x end)
+    itotal = Enum.sum(ipc)
+    ips = Enum.sort_by(ips, fn {_cc, per} -> per end)
+
+    ips =
+      Enum.map(ips, fn {cc, per} ->
+        cn = per / itotal
+        {cc, cn}
+      end)
+
+    Enum.sort(ips)
+  end
+
+  def update_country_percent(ips \\ nil) do
+    _ips =
+      if ips != nil do
+        c = Enum.map(ips, fn {_cc, cn} -> cn end)
+        c = Enum.sum(c)
+        Skn.Config.set(:proxy_ip_country_size, c)
+        Skn.Config.set(:proxy_ip_country_list, ips)
+        ips
+      else
+        Skn.Config.get(:proxy_ip_country_list, [{"us", 1}])
+      end
+
+    #        Enum.reduce ips, 0, fn ({cc, cn}, acc) ->
+    #            Enum.reduce 1..cn, acc, fn(_, acc1) ->
+    #                :ets.insert(:proxy_country_percent, {acc1, cc})
+    #                acc1 + 1
+    #            end
+    #        end
+  end
+
+  def update_master_country_percent do
+    :net_adm.ping(Skn.Config.get(:master))
+    a = :rpc.call(Skn.Config.get(:master), Skn.DB.Config, :get, [:proxy_ip_country_list])
+    update_country_percent(a)
+  end
+
+  #    def country do
+  #        case :file.consult(:os.getenv('COUNTRY_DB', './country.txt')) do
+  #        {:ok, [list]} -> list
+  #        {:error, _} -> [:us, :gb, :br]
+  #        end
+  #    end
+
+  #    def proxy_country(proxies) do
+  #        server_country = country()
+  #        {mi, ma} = Skn.Config.get :country, {0, length(server_country) - 1}
+  #        slice = Enum.slice server_country, mi..ma
+  #        Enum.shuffle Enum.reduce(proxies, [], fn ({proxy, auth}, acc) ->
+  #            case auth do
+  #            {:sessioner, gen, pass} ->
+  #                Enum.reduce slice, acc, fn (x, acc2) ->
+  #                    [{proxy, {:sessioner, "#{gen}-country-#{x}", pass}}| acc2]
+  #                end
+  #            _ ->
+  #                acc
+  #            end
+  #        end)
+  #    end
+
+  def proxy_to_name({:choose, x}) do
+    id = rem(Skn.Config.gen_super_id(), groups()) + 1
+    proxy_to_name({id, x})
+  end
+
+  def proxy_to_name({id, _}) do
+    :erlang.list_to_atom('proxy_group_#{id}')
+  end
+
+  def update_all do
+    proxies = Skn.DB.ProxyList.list_tag(:super)
+
+    for id <- 1..groups() do
+      GenServer.cast(proxy_to_name({id, nil}), {:update, proxies})
+    end
+  end
+
+  def update_static() do
+    proxies = Skn.DB.ProxyList.list_tag(:static)
+    GenServer.cast(proxy_to_name({:static, nil}), {:update, proxies})
+  end
+
+  def remove_static_proxy(proxy) do
+    GenServer.cast(proxy_to_name({:static, nil}), {:remove, proxy})
+  end
+
+  def groups do
+    2
+  end
+
+  def get_group(id) do
+    case id do
+      :static -> :proxy_group_static
+      _ -> proxy_to_name({id, nil})
+    end
+  end
+
+  def grab_proxy(group, botid, cc, idx) do
+    GenServer.call(group, {:get, botid, cc, idx}, 60000)
+  end
+
+  def start_link(args) do
+    GenServer.start_link(__MODULE__, args, name: proxy_to_name(args))
+  end
+
+  def stop_by(pid, reason) do
+    try do
+      GenServer.call(pid, {:stop, reason})
+    catch
+      _, _ ->
+        :ignore
+    end
+  end
+
+  def init({:static, group}) do
+    Process.flag(:trap_exit, true)
+    send(self(), {:update, group})
+    {:ok, %{id: :static, group: [], ptr: :rand.uniform(5000), cc: %{}}}
+  end
+
+  def init({id, group}) do
+    Process.flag(:trap_exit, true)
+    {:ok, %{id: id, group: group, ptr: 0, cc: %{}}}
+  end
+
+  def handle_call({:set, group}, _from, state) do
+    {:reply, :ok, %{state | group: group}}
+  end
+
+  def handle_call({:get, botid, cc, idx}, _from, %{id: :static, cc: ccx, ptr: ptr} = state) do
+    cck = ccx[:list]
+    idxx = if idx == nil, do: ptr, else: idx
+    cc = if cc == nil and is_list(cck) and cck != [], do: Enum.random(cck), else: cc
+
+    x =
+      if is_list(cck) and cc in cck do
+        c = cc
+        pl = Map.get(ccx, c, [])
+
+        if length(pl) > 0 do
+          Enum.at(pl, rem(idxx, length(pl)))
+        else
+          nil
+        end
+      else
+        nil
+      end
+
+    idxx2 = if idx == nil, do: idx, else: idx + 1
+
+    proxy =
+      case x do
+        {:socks5, _} = p ->
+          %{proxy: p}
+
+        {p, a} ->
+          %{
+            proxy: p,
+            proxy_auth: a,
+            proxy_auth_fun: {__MODULE__, :choose, [%{proxy: {:group, :static}}, botid, cc, idxx2]}
+          }
+
+        _ ->
+          %{proxy: nil, proxy_auth: nil}
+      end
+
+    ptr1 = if ptr + 1 > 999_999_999, do: :rand.uniform(5000), else: ptr + 1
+    {:reply, proxy, %{state | ptr: ptr1}}
+  end
+
+  def handle_call({:get, botid, cc, idx}, _from, %{id: id, group: group} = state) do
+    proxy =
+      if length(group) > 0 do
+        i = rem(:erlang.phash2(botid) + idx, length(group))
+        proxy0 = Enum.at(group, i)
+
+        case proxy0 do
+          {:socks5, _} = p ->
+            %{
+              proxy: p,
+              proxy_auth_fun: {__MODULE__, :choose, [%{proxy: {:group, id}}, botid, cc, idx + 1]}
+            }
+
+          {p, a} ->
+            %{
+              proxy: p,
+              proxy_auth: a,
+              proxy_auth_fun: {__MODULE__, :choose, [%{proxy: {:group, id}}, botid, cc, idx + 1]}
+            }
+
+          _ ->
+            %{proxy: nil, proxy_auth: nil}
+        end
+      else
+        %{proxy: nil, proxy_auth: nil}
+      end
+
+    {:reply, proxy, state}
+  end
+
+  def handle_call({:stop, _}, _from, state) do
+    {:stop, :normal, :ok, state}
+  end
+
+  def handle_call(request, from, state) do
+    Logger.warn("drop unknown call #{inspect(request)} from #{inspect(from)}")
+    {:reply, {:error, "badreq"}, state}
+  end
+
+  def handle_cast({:update, group}, %{id: :static} = state) do
+    cc =
+      Enum.reduce(group, %{}, fn v, acc ->
+        ip2 =
+          case Skn.DB.ProxyIP2.read(v[:ip]) do
+            nil ->
+              Luminati.Keeper.update(v[:ip], :ok)
+              %{info: %{}}
+
+            v1 ->
+              v1
+          end
+
+        geox = if v[:info][:geo] != nil, do: v[:info][:geo], else: ip2[:info][:geo]
+
+        case geox do
+          nil ->
+            GeoIP.update(v[:ip], true)
+            acc
+
+          geo ->
+            cck = String.downcase(geo["country_code"])
+            l = :sets.to_list(:sets.add_element(cck, :sets.from_list(Map.get(acc, :list, []))))
+            ccm = Map.get(acc, cck, [])
+            pl = :sets.to_list(:sets.add_element(v[:id], :sets.from_list(ccm)))
+            acc = Map.put(acc, :list, l)
+            Map.put(acc, cck, pl)
+        end
+      end)
+
+    {:noreply, %{state | cc: cc}}
+  end
+
+  def handle_cast({:update, group}, %{ptr: ptr} = state) do
+    group1 = Enum.map(group, fn v -> v[:id] end)
+    ptr = if ptr >= length(group1), do: 0, else: ptr
+    {:noreply, %{state | group: group1, ptr: ptr}}
+  end
+
+  def handle_cast({:remove, proxy}, %{ptr: ptr, group: group0} = state) do
+    group = List.delete(group0, proxy[:id])
+    ptr = if ptr >= length(group), do: 0, else: ptr
+    {:noreply, %{state | group: group, ptr: ptr}}
+  end
+
+  def handle_cast(request, state) do
+    Logger.warn("drop unknown cast #{inspect(request)}")
+    {:noreply, state}
+  end
+
+  def handle_info({:update, group}, state) do
+    handle_cast({:update, group}, state)
+  end
+
+  #    def handle_info({:update_geo, ip, x, geo}, %{cc: acc} = state) do
+  #        Logger.debug "#{ip} is updated GEO"
+  #        Skn.DB.ProxyIP2.update_geo(ip, 0, geo)
+  #        cck = String.downcase(geo["country_code"])
+  #        l = :sets.to_list(:sets.add_element(cck, :sets.from_list(Map.get(acc, :list, []))))
+  #        ccm = Map.get(acc, cck, [])
+  #        pl = :sets.to_list(:sets.add_element(x, :sets.from_list(ccm)))
+  #        acc = Map.put acc, :list, l
+  #        acc = Map.put acc, cck, pl
+  #        {:noreply, %{state| cc: acc}}
+  #    end
+
+  def handle_info(msg, state) do
+    Logger.debug("drop unknown #{inspect(msg)}")
+    {:noreply, state}
+  end
+
+  def terminate(_reason, _state) do
+    #        Logger.debug "stopped by #{inspect reason}"
+    :ok
+  end
+end
