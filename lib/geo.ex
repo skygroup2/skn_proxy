@@ -4,7 +4,7 @@ defmodule GeoIP do
   """
   use GenServer
   require Logger
-
+  alias Skn.Proxy.SqlApi
   import HackneyEx,
     only: [
       decode_gzip: 1,
@@ -26,7 +26,7 @@ defmodule GeoIP do
   ]
 
   def update({_requester, _ip, _keeper}, _is_static) do
-    #        flag = case Proxy.RepoApi.get_GeoIP(ip) do
+    #        flag = case SqlApi.get_GeoIP(ip) do
     #        %{geo: %{"country_code" => cc, "ip" => xip}} ->
     #            send requester, {:update_geo, ip, keeper, %{"country_code" => cc, "ip" => xip}, is_static}
     #            true
@@ -44,16 +44,16 @@ defmodule GeoIP do
 
     if is_static == true or is_static == :unstable do
       flag =
-        case Proxy.RepoApi.get_GeoIP(ip) do
+        case SqlApi.get_GeoIP(ip) do
           %{geo: %{"country_code" => cc, "ip" => xip}} ->
             p_attrs =
               Map.merge(normalize_hog(p), %{
                 real_ip: xip,
                 country: cc,
-                status: Proxy.RepoApi.proxy_status_geo()
+                status: SqlApi.proxy_status_geo()
               })
 
-            Proxy.RepoApi.update_proxy(p_attrs)
+            SqlApi.update_proxy(p_attrs)
             true
 
           _ ->
@@ -231,16 +231,16 @@ defmodule GeoIP do
         case x do
           %{id: proxy_id} ->
             flag =
-              case Proxy.RepoApi.get_GeoIP(x[:ip]) do
+              case SqlApi.get_GeoIP(x[:ip]) do
                 %{geo: %{"country_code" => cc, "ip" => xip}} ->
                   p_attrs =
                     Map.merge(normalize_hog(x), %{
                       real_ip: xip,
                       country: cc,
-                      status: Proxy.RepoApi.proxy_status_geo()
+                      status: SqlApi.proxy_status_geo()
                     })
 
-                  Proxy.RepoApi.update_proxy(p_attrs)
+                  SqlApi.update_proxy(p_attrs)
                   true
 
                 _ ->
@@ -252,7 +252,7 @@ defmodule GeoIP do
               geo = query_by_vpn(proxy_id)
 
               if is_map(geo) do
-                Proxy.RepoApi.update_GeoIP(%{
+                SqlApi.update_GeoIP(%{
                   address: geo["ip"],
                   country: geo["country_code"],
                   geo: geo
@@ -262,10 +262,10 @@ defmodule GeoIP do
                   Map.merge(normalize_hog(x), %{
                     real_ip: geo["ip"],
                     country: geo["country_code"],
-                    status: Proxy.RepoApi.proxy_status_geo()
+                    status: SqlApi.proxy_status_geo()
                   })
 
-                Proxy.RepoApi.update_proxy(p_attrs)
+                SqlApi.update_proxy(p_attrs)
 
                 if s == true do
                   Skn.DB.ProxyList.update_geo(x[:ip], compress_geo(geo))
@@ -274,9 +274,9 @@ defmodule GeoIP do
                 acc
               else
                 p_attrs =
-                  Map.merge(normalize_hog(x), %{status: Proxy.RepoApi.proxy_status_no_geo()})
+                  Map.merge(normalize_hog(x), %{status: SqlApi.proxy_status_no_geo()})
 
-                Proxy.RepoApi.update_proxy(p_attrs)
+                SqlApi.update_proxy(p_attrs)
                 acc
               end
             else
@@ -286,7 +286,7 @@ defmodule GeoIP do
           {requester, ip, keeper} ->
             # Luminati keeper
             flag =
-              case Proxy.RepoApi.get_GeoIP(ip) do
+              case SqlApi.get_GeoIP(ip) do
                 %{geo: %{"country_code" => cc, "ip" => xip}} ->
                   send(
                     requester,
@@ -304,7 +304,7 @@ defmodule GeoIP do
               geo = query_by_ip(ip)
 
               if is_map(geo) do
-                Proxy.RepoApi.update_GeoIP(%{
+                SqlApi.update_GeoIP(%{
                   address: geo["ip"],
                   country: geo["country_code"],
                   geo: geo
@@ -347,8 +347,8 @@ defmodule GeoIP do
   end
 
   defp get_if() do
-    i = V1.DB.Counter.update_counter(:if_seq, 1)
-    ips = V1.DB.Config.get(:ips, [])
+    i = Skn.Counter.update_counter(:if_seq, 1)
+    ips = Skn.Config.get(:ips, [])
 
     if ips == [] do
       []
@@ -363,7 +363,6 @@ defmodule GeoIP do
       case proxy do
         nil ->
           []
-
         {:socks5, _, _} ->
           case proxy_auth do
             {user, pass} ->
@@ -372,7 +371,6 @@ defmodule GeoIP do
             _ ->
               [{:proxy, proxy}]
           end
-
         proxy ->
           case proxy_auth do
             nil -> [{:proxy, proxy}]

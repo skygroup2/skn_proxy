@@ -113,7 +113,7 @@ defmodule Skn.DB.ProxyIP2 do
   end
 
   def write(ip, keeper, info) do
-    obj = V1.DB.proxy_ip2(id: ip, keeper: keeper, info: info)
+    obj = Skn.Proxy.Repo.proxy_ip2(id: ip, keeper: keeper, info: info)
     :mnesia.dirty_write(:proxy_ip2, obj)
   end
 
@@ -225,6 +225,6 @@ defmodule Skn.DB.ProxyIP2 do
   end
 
   def to_map(c) do
-    %{ip: V1.DB.proxy_ip2(c, :id), keeper: V1.DB.proxy_ip2(c, :keeper), info: V1.DB.proxy_ip2(c, :info)}
+    %{ip: Skn.Proxy.Repo.proxy_ip2(c, :id), keeper: Skn.Proxy.Repo.proxy_ip2(c, :keeper), info: Skn.Proxy.Repo.proxy_ip2(c, :info)}
   end
 end

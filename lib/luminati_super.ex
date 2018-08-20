@@ -167,7 +167,7 @@ defmodule Luminati.Super do
   end
 
   def handle_info(:do_schedule, %{count: 0, user: user, update: update} = state) do
-    count = Config.get(:proxy_scanner_count, 5)
+    count = Skn.Config.get(:proxy_scanner_count, 5)
     count = if count > 64, do: 64, else: count
     proxy_super_country = Skn.Config.get(:proxy_super_country, [])
     #        Logger.debug "start #{count} process to scan super proxy"
@@ -182,11 +182,11 @@ defmodule Luminati.Super do
           if is_list(proxy_super_country) and length(proxy_super_country) > 0 do
             cc = Enum.at(proxy_super_country, rem(count, length(proxy_super_country)))
 
-            DNS.lookup(
+            DNSEx.lookup(
               "customer-#{user}-session-#{seed}#{rand}-servercountry-#{cc}.zproxy.lum-superproxy.io"
             )
           else
-            DNS.lookup("customer-#{user}-session-#{seed}#{rand}.zproxy.lum-superproxy.io")
+            DNSEx.lookup("customer-#{user}-session-#{seed}#{rand}.zproxy.lum-superproxy.io")
           end
 
         send(parent, {:search_result, acc})
@@ -225,7 +225,7 @@ defmodule Luminati.Super do
       ) do
     #        Logger.debug "received #{length(proxies)} may be worked proxy"
     if count <= 1 do
-      schedule(Config.get(:tm_proxy_scanner, 60000))
+      schedule(Skn.Config.get(:tm_proxy_scanner, 60000))
     end
 
     Enum.reduce(proxies, 0, fn x, acc ->
