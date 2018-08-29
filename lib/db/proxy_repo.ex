@@ -23,6 +23,10 @@ defmodule Skn.Proxy.Repo do
     )
   end
 
+  def create_db() do
+    :ets.new(:proxy_country_percent, [:public, :set, :named_table, {:read_concurrency, true}])
+  end
+
   def init(_, opts) do
     {:ok, Keyword.put(opts, :url, System.get_env("DATABASE_URL"))}
   end
