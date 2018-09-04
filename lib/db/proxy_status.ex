@@ -57,7 +57,7 @@ defmodule Skn.DB.ProxyList do
       nodes = Skn.Config.get(:slaves, [])
       Enum.each ips, fn {id, ip, assign, info} ->
         failed = Map.get(info, :failed, 0)
-        if (assign in nodes) and is_integer(failed) and failed == 0 do
+        if (assign == nil or (assign in nodes)) and failed == 0 do
           Command.Gate.async_dist_rpc(assign, {:proxy_assign, %{id: id, ip: ip, tag: :static, assign: assign, info: info}})
         end
       end
