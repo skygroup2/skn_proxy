@@ -419,6 +419,7 @@ defmodule ProxyGroup do
   end
 
   def handle_cast({:update, group}, %{id: :static} = state) do
+    s5_proxy_geo = Skn.Config.get(:s5_proxy_geo, false)
     cc =
       Enum.reduce(group, %{}, fn v, acc ->
         ip2 =
@@ -430,21 +431,28 @@ defmodule ProxyGroup do
             v1 ->
               v1
           end
-
         geox = if v[:info][:geo] != nil, do: v[:info][:geo], else: ip2[:info][:geo]
+        if s5_proxy_geo == true do
+          case geox do
+            nil ->
+              GeoIP.update(v[:ip], true)
+              acc
 
-        case geox do
-          nil ->
-            GeoIP.update(v[:ip], true)
-            acc
-
-          geo ->
-            cck = String.downcase(geo["country_code"])
-            l = :sets.to_list(:sets.add_element(cck, :sets.from_list(Map.get(acc, :list, []))))
-            ccm = Map.get(acc, cck, [])
-            pl = :sets.to_list(:sets.add_element(v[:id], :sets.from_list(ccm)))
-            acc = Map.put(acc, :list, l)
-            Map.put(acc, cck, pl)
+            geo ->
+              cck = String.downcase(geo["country_code"])
+              l = :sets.to_list(:sets.add_element(cck, :sets.from_list(Map.get(acc, :list, []))))
+              ccm = Map.get(acc, cck, [])
+              pl = Enum.sort [v[:id]| ccm]
+              acc = Map.put(acc, :list, l)
+              Map.put(acc, cck, pl)
+          end
+        else
+          cck = "us"
+          l = :sets.to_list(:sets.add_element(cck, :sets.from_list(Map.get(acc, :list, []))))
+          ccm = Map.get(acc, cck, [])
+          pl = Enum.sort [v[:id]| ccm]
+          acc = Map.put(acc, :list, l)
+          Map.put(acc, cck, pl)
         end
       end)
 

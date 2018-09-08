@@ -205,12 +205,12 @@ defmodule Skn.DB.ProxyList do
     :mnesia.dirty_delete(:proxy_blocked, id)
   end
 
-  def ensure_geo(%{info: info}) do
+  def ensure_geo(%{ip: ip, info: info} = p) do
     case info do
       %{geo: geo} when is_map(geo) ->
         geo["country_code"]
-      _ ->
-        case Proxy.RepoApi.get_GeoIP(ip) do
+      %{failed: 0} ->
+        case Skn.Proxy.SqlApi.get_GeoIP(ip) do
         %{geo: geo} when is_map(geo) ->
             update_geo(ip, GeoIP.compress_geo(geo))
             geo["country_code"]
@@ -218,6 +218,8 @@ defmodule Skn.DB.ProxyList do
             GeoIP.update(p, true)
             nil
         end
+      _ ->
+        nil
     end
   end
 
