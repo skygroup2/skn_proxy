@@ -99,7 +99,7 @@ defmodule Luminati.Sup do
     {:ok, _} = Supervisor.start_child(@name, worker(S5Proxy, [handle], opts))
   end
 
-  def start_proxy_hulk(handle) do
+  def start_proxy_hulk() do
     opts = [
       id: ProxyHulk,
       function: :start_link,
@@ -108,7 +108,7 @@ defmodule Luminati.Sup do
       modules: [ProxyHulk]
     ]
 
-    {:ok, _} = Supervisor.start_child(@name, worker(ProxyHulk, [handle], opts))
+    {:ok, _} = Supervisor.start_child(@name, worker(ProxyHulk, [], opts))
   end
 
   def start_geoip() do
