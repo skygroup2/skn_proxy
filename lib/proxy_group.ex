@@ -266,13 +266,6 @@ defmodule ProxyGroup do
       else
         Skn.Config.get(:proxy_ip_country_list, [{"us", 1}])
       end
-
-    #        Enum.reduce ips, 0, fn ({cc, cn}, acc) ->
-    #            Enum.reduce 1..cn, acc, fn(_, acc1) ->
-    #                :ets.insert(:proxy_country_percent, {acc1, cc})
-    #                acc1 + 1
-    #            end
-    #        end
   end
 
   def update_master_country_percent do
@@ -280,29 +273,6 @@ defmodule ProxyGroup do
     a = :rpc.call(Skn.Config.get(:master), Skn.DB.Config, :get, [:proxy_ip_country_list])
     update_country_percent(a)
   end
-
-  #    def country do
-  #        case :file.consult(:os.getenv('COUNTRY_DB', './country.txt')) do
-  #        {:ok, [list]} -> list
-  #        {:error, _} -> [:us, :gb, :br]
-  #        end
-  #    end
-
-  #    def proxy_country(proxies) do
-  #        server_country = country()
-  #        {mi, ma} = Skn.Config.get :country, {0, length(server_country) - 1}
-  #        slice = Enum.slice server_country, mi..ma
-  #        Enum.shuffle Enum.reduce(proxies, [], fn ({proxy, auth}, acc) ->
-  #            case auth do
-  #            {:sessioner, gen, pass} ->
-  #                Enum.reduce slice, acc, fn (x, acc2) ->
-  #                    [{proxy, {:sessioner, "#{gen}-country-#{x}", pass}}| acc2]
-  #                end
-  #            _ ->
-  #                acc
-  #            end
-  #        end)
-  #    end
 
   def proxy_to_name({:choose, x}) do
     id = rem(Skn.Config.gen_id(:proxy_super_seq), groups()) + 1
@@ -376,13 +346,11 @@ defmodule ProxyGroup do
   def handle_call({:get, botid, cc, idx}, _from, %{id: :static, cc: ccx, ptr: ptr} = state) do
     cck = ccx[:list]
     idxx = if idx == nil, do: ptr, else: idx
-    cc = if cc == nil and is_list(cck) and cck != [], do: Enum.random(cck), else: cc
-
+    cc = if cc == nil and is_list(cck) and cck != [], do: Enum.at(cck, rem(ptr, length(cck))), else: cc
     x =
       if is_list(cck) and cc in cck do
         c = cc
         pl = Map.get(ccx, c, [])
-
         if length(pl) > 0 do
           Enum.at(pl, rem(idxx, length(pl)))
         else
@@ -398,18 +366,15 @@ defmodule ProxyGroup do
       case x do
         {:socks5, _} = p ->
           %{proxy: p}
-
         {p, a} ->
           %{
             proxy: p,
             proxy_auth: a,
             proxy_auth_fun: {__MODULE__, :choose, [%{proxy: {:group, :static}}, botid, cc, idxx2]}
           }
-
         _ ->
           %{proxy: nil, proxy_auth: nil}
       end
-
     ptr1 = if ptr + 1 > 999_999_999, do: :rand.uniform(5000), else: ptr + 1
     {:reply, proxy, %{state | ptr: ptr1}}
   end
@@ -507,25 +472,13 @@ defmodule ProxyGroup do
     handle_cast({:update, group}, state)
   end
 
-  #    def handle_info({:update_geo, ip, x, geo}, %{cc: acc} = state) do
-  #        Logger.debug "#{ip} is updated GEO"
-  #        Skn.DB.ProxyIP2.update_geo(ip, 0, geo)
-  #        cck = String.downcase(geo["country_code"])
-  #        l = :sets.to_list(:sets.add_element(cck, :sets.from_list(Map.get(acc, :list, []))))
-  #        ccm = Map.get(acc, cck, [])
-  #        pl = :sets.to_list(:sets.add_element(x, :sets.from_list(ccm)))
-  #        acc = Map.put acc, :list, l
-  #        acc = Map.put acc, cck, pl
-  #        {:noreply, %{state| cc: acc}}
-  #    end
-
   def handle_info(msg, state) do
     Logger.debug("drop unknown #{inspect(msg)}")
     {:noreply, state}
   end
 
-  def terminate(_reason, _state) do
-    #        Logger.debug "stopped by #{inspect reason}"
+  def terminate(reason, _state) do
+    Logger.debug "stopped by #{inspect reason}"
     :ok
   end
 end

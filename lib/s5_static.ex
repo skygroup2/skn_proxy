@@ -7,8 +7,7 @@ defmodule S5Proxy do
 
   import Skn.Util,
     only: [
-      reset_timer: 3,
-      split_list: 2
+      reset_timer: 3
     ]
 
   @name :s5_proxy
@@ -75,12 +74,17 @@ defmodule S5Proxy do
 
   def handle_info({:update, ips}, %{checker: handle} = state) do
     Logger.debug("update #{length(ips)} s5 proxy")
-    ips = split_list(ips, 50)
-
-    Enum.each(ips, fn x ->
-      Luminati.Static.validate_static_proxy(handle, x)
+    ips = Enum.chunk_every(ips, 50)
+    new = Enum.reduce(ips, 0, fn x, acc ->
+      n = validate_static_proxy(handle, x)
+      acc + n
     end)
-
+    if new > 0 do
+      ProxyGroup.update_static()
+      if Skn.Config.get(:sync_static, false) == true do
+        Skn.DB.ProxyList.sync_static()
+      end
+    end
     {:noreply, state}
   end
 
@@ -143,5 +147,113 @@ defmodule S5Proxy do
       _ ->
         nil
     end
+  end
+
+  def validate_static_proxy(handle, proxies) do
+    ts_now = :erlang.system_time(:millisecond)
+    tm_proxy_failed = Skn.Config.get(:tm_proxy_failed, 1_200_000)
+    tm_proxy_banned = Skn.Config.get(:tm_proxy_banned, 86_400_000)
+    tm_proxy_recheck = Skn.Config.get(:tm_proxy_recheck, 172_800_000)
+
+    news =
+      Enum.filter(proxies, fn proxy ->
+        case Skn.DB.ProxyList.get(proxy[:id]) do
+          %{info: %{status: :refresh}} ->
+            false
+
+          %{info: %{status: :banned, updated: updated}} when ts_now - updated < tm_proxy_banned ->
+            false
+
+          %{info: %{failed: failed, updated: updated}}
+          when failed > 2 and ts_now - updated < tm_proxy_failed ->
+            false
+
+          %{info: %{status: :banned, failed: failed}} when failed < 2 ->
+            false
+
+          %{info: %{failed: failed}} when failed < 2 ->
+            true
+
+          nil ->
+            true
+
+          _ ->
+            case Skn.DB.ProxyIP2.read(proxy[:ip]) do
+              %{info: %{status: :ok, updated: updated}}
+              when ts_now - updated < tm_proxy_recheck ->
+                false
+              %{info: %{status: :banned, banned: banned}}
+              when ts_now - banned < tm_proxy_banned ->
+                false
+              _ ->
+                true
+            end
+        end
+      end)
+
+    rets =
+      Enum.map(news, fn proxy ->
+        Task.async(fn ->
+          ip = proxy[:ip]
+          {p, pa} = proxy[:id]
+
+          try do
+            if handle != nil do
+              handle.(proxy, %{proxy: p, proxy_auth: pa})
+            else
+              {:ok, proxy}
+            end
+          catch
+            _, {:change_ip, {401, "AuthenticationException"} = exp} ->
+              Logger.debug("proxy #{inspect(ip)} blocked by #{inspect(exp)}")
+              Luminati.Keeper.update(ip, :banned)
+              GeoIP.update(proxy, true)
+              Skn.DB.ProxyList.set_info(proxy, :status, :banned)
+              {:error, proxy}
+
+            _, {:change_ip, {502, []} = exp} ->
+              Logger.debug("proxy #{inspect(ip)} blocked by #{inspect(exp)}")
+              Luminati.Keeper.update(ip, :banned)
+              GeoIP.update(proxy, true)
+              Skn.DB.ProxyList.set_info(proxy, :status, :banned)
+              {:error, proxy}
+
+            _, {:change_ip, exp} ->
+              Logger.debug("proxy #{inspect(ip)} blocked by #{inspect(exp)}")
+              Luminati.Keeper.update(ip, :banned)
+              GeoIP.update(proxy, true)
+              {:error, proxy}
+
+            _, {502, []} = exp ->
+              Logger.debug("proxy #{inspect(ip)} blocked by #{inspect(exp)}")
+              Luminati.Keeper.update(ip, :banned)
+              GeoIP.update(proxy, true)
+              Skn.DB.ProxyList.set_info(proxy, :status, :banned)
+              {:error, proxy}
+
+            _, exp ->
+              Logger.debug("proxy #{inspect(ip)} blocked by #{inspect(exp)}")
+              {:error, proxy}
+          end
+        end)
+      end)
+
+    status =
+      Enum.map(rets, fn x ->
+        Task.yield(x, 150_000)
+      end)
+    Enum.reduce(status, 0, fn (x, acc) ->
+      case x do
+        {:ok, {:ok, y}} ->
+          GeoIP.update(y, true)
+          y1 = Map.put(y, :incr, 0)
+          Skn.DB.ProxyList.update_failed(y1)
+          acc + 1
+        {:ok, {:error, _y}} ->
+          acc
+        _ ->
+          acc
+      end
+    end)
   end
 end

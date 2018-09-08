@@ -50,16 +50,9 @@ defmodule Skn.DB.ProxyList do
 
   def sync_static() do
     if (node() == Skn.Config.get(:master)) do
-      mh = {:proxy_blocked, :"$1", :"$2", :"$3", :"$4", :"$5"}
-      mg = [{:==, :"$3", :static}]
-      mr = {{:"$1", :"$2", :"$4", :"$5"}}
-      ips = :mnesia.dirty_select(:proxy_blocked, [{mh, mg, [mr]}])
       nodes = Skn.Config.get(:slaves, [])
-      Enum.each ips, fn {id, ip, assign, info} ->
-        failed = Map.get(info, :failed, 0)
-        if (assign == nil or (assign in nodes)) and failed == 0 do
-          Command.Gate.async_dist_rpc(assign, {:proxy_assign, %{id: id, ip: ip, tag: :static, assign: assign, info: info}})
-        end
+      Enum.each nodes, fn x ->
+        sync_static(x)
       end
     end
   end

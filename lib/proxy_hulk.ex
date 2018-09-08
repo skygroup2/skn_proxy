@@ -33,7 +33,6 @@ defmodule ProxyHulk do
         {username, _} ->
           n = grab_proxy(username) |> import_hulk()
           Logger.debug("imported #{n} proxies")
-          ProxyGroup.update_static()
         _ ->
           :ok
       end
@@ -89,11 +88,17 @@ defmodule ProxyHulk do
   end
 
   def import_hulk(proxies) do
-    Enum.each proxies, fn x ->
-      %{proxy: proxy, ip: ip} = x
-      r = %{id: {proxy, nil}, ip: ip, tag: :static, assign: :hulk, info: %{failed: 0}}
-      Skn.DB.ProxyList.write(r)
+    Enum.reduce proxies, 0, fn(%{proxy: proxy, ip: ip}, acc) ->
+      case Skn.DB.ProxyList.get({proxy, nil}) do
+      %{info: %{failed: 0}} ->
+        acc
+      nil ->
+        r = %{id: {proxy, nil}, ip: ip, tag: :static, assign: :hulk, info: %{failed: 1}}
+        Skn.DB.ProxyList.write(r)
+        acc + 1
+      _ ->
+        acc
+      end
     end
-    length(proxies)
   end
 end
