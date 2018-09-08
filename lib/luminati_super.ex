@@ -75,18 +75,6 @@ defmodule Luminati.Sup do
     {:ok, _} = Supervisor.start_child(@name, worker(Luminati.Super, [account], opts))
   end
 
-  def start_proxy_static(handle) do
-    opts = [
-      id: Luminati.Static,
-      function: :start_link,
-      restart: :transient,
-      shutdown: 5000,
-      modules: [Luminati.Static]
-    ]
-
-    {:ok, _} = Supervisor.start_child(@name, worker(Luminati.Static, [handle], opts))
-  end
-
   def start_proxy_s5(handle) do
     opts = [
       id: S5Proxy,
@@ -97,6 +85,18 @@ defmodule Luminati.Sup do
     ]
 
     {:ok, _} = Supervisor.start_child(@name, worker(S5Proxy, [handle], opts))
+  end
+
+  def start_proxy_static() do
+    opts = [
+      id: Luminati.Static,
+      function: :start_link,
+      restart: :transient,
+      shutdown: 5000,
+      modules: [Luminati.Static]
+    ]
+
+    {:ok, _} = Supervisor.start_child(@name, worker(Luminati.Static, [], opts))
   end
 
   def start_proxy_hulk() do

@@ -26,8 +26,8 @@ defmodule Luminati.Static do
     {:connect_timeout, 30000}
   ]
 
-  def start_link(check) do
-    GenServer.start_link(__MODULE__, check, name: @name)
+  def start_link() do
+    GenServer.start_link(__MODULE__, [], name: @name)
   end
 
   def refresh_ip(email, password, account, zone, ips) do
@@ -108,10 +108,10 @@ defmodule Luminati.Static do
     end
   end
 
-  def init(check) do
+  def init(_args) do
     Process.flag(:trap_exit, true)
     reset_timer(:schedule_ref, :schedule, 120_000)
-    {:ok, %{count: 0, checker: check}}
+    {:ok, %{count: 0}}
   end
 
   def handle_call({:stop, _}, _from, state) do
