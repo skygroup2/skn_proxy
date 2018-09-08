@@ -210,15 +210,14 @@ defmodule Skn.DB.ProxyList do
       %{geo: geo} when is_map(geo) ->
         geo["country_code"]
       _ ->
-        nil
-      #            case Proxy.RepoApi.get_GeoIP(ip) do
-      #            %{geo: geo} when is_map(geo) ->
-      #                update_geo(ip, GeoIP.compress_geo(geo))
-      #                geo["country_code"]
-      #            _ ->
-      #                GeoIP.update(p, true)
-      #                nil
-      #            end
+        case Proxy.RepoApi.get_GeoIP(ip) do
+        %{geo: geo} when is_map(geo) ->
+            update_geo(ip, GeoIP.compress_geo(geo))
+            geo["country_code"]
+        _ ->
+            GeoIP.update(p, true)
+            nil
+        end
     end
   end
 
@@ -272,10 +271,9 @@ defmodule Skn.DB.ProxyList do
           _ -> false
         end
       end
-      ips = Enum.filter ips,
-                        fn {id, ip, info} ->
-                          ensure_geo(%{id: id, ip: ip, tag: tag, info: info}) != nil and Map.get(info, :failed, 0) == 0
-                        end
+      ips = Enum.filter ips, fn {id, ip, info} ->
+        ensure_geo(%{id: id, ip: ip, tag: tag, info: info}) != nil and Map.get(info, :failed, 0) == 0
+      end
       nodes = Enum.sort Skn.Config.get(:slaves, [])
       num_node = length(nodes)
       if num_node > 0 do
