@@ -152,7 +152,6 @@ defmodule S5Proxy do
   def validate_static_proxy(handle, proxies) do
     ts_now = :erlang.system_time(:millisecond)
     tm_proxy_failed = Skn.Config.get(:tm_proxy_failed, 1_200_000)
-    tm_proxy_banned = Skn.Config.get(:tm_proxy_banned, 86_400_000)
     tm_proxy_recheck = Skn.Config.get(:tm_proxy_recheck, 172_800_000)
 
     news =
@@ -161,33 +160,13 @@ defmodule S5Proxy do
           %{info: %{status: :refresh}} ->
             false
 
-          %{info: %{status: :banned, updated: updated}} when ts_now - updated < tm_proxy_banned ->
-            false
+          %{info: %{failed: failed, updated: updated}} when failed > 2 ->
+            ts_now - updated >= min((failed - 1), 120) * tm_proxy_failed
 
-          %{info: %{failed: failed, updated: updated}}
-          when failed > 2 and ts_now - updated < tm_proxy_failed ->
-            false
-
-          %{info: %{status: :banned, failed: failed}} when failed < 2 ->
-            false
-
-          %{info: %{failed: failed}} when failed < 2 ->
-            true
-
-          nil ->
-            true
-
+          %{info: %{failed: 0, updated: updated}} ->
+            (ts_now - updated) >= tm_proxy_recheck
           _ ->
-            case Skn.DB.ProxyIP2.read(proxy[:ip]) do
-              %{info: %{status: :ok, updated: updated}}
-              when ts_now - updated < tm_proxy_recheck ->
-                false
-              %{info: %{status: :banned, banned: banned}}
-              when ts_now - banned < tm_proxy_banned ->
-                false
-              _ ->
-                true
-            end
+            true
         end
       end)
 
@@ -204,35 +183,20 @@ defmodule S5Proxy do
               {:ok, proxy}
             end
           catch
-            _, {:change_ip, {401, "AuthenticationException"} = exp} ->
-              Logger.debug("proxy #{inspect(ip)} blocked by #{inspect(exp)}")
-              Luminati.Keeper.update(ip, :banned)
-              GeoIP.update(proxy, true)
-              Skn.DB.ProxyList.set_info(proxy, :status, :banned)
-              {:error, proxy}
-
-            _, {:change_ip, {502, []} = exp} ->
-              Logger.debug("proxy #{inspect(ip)} blocked by #{inspect(exp)}")
-              Luminati.Keeper.update(ip, :banned)
-              GeoIP.update(proxy, true)
-              Skn.DB.ProxyList.set_info(proxy, :status, :banned)
-              {:error, proxy}
-
             _, {:change_ip, exp} ->
               Logger.debug("proxy #{inspect(ip)} blocked by #{inspect(exp)}")
               Luminati.Keeper.update(ip, :banned)
-              GeoIP.update(proxy, true)
-              {:error, proxy}
-
-            _, {502, []} = exp ->
-              Logger.debug("proxy #{inspect(ip)} blocked by #{inspect(exp)}")
-              Luminati.Keeper.update(ip, :banned)
-              GeoIP.update(proxy, true)
-              Skn.DB.ProxyList.set_info(proxy, :status, :banned)
+              if exp not in [{:error, :connect_timeout}, {:error, :ehostunreach}]  do
+                GeoIP.update(proxy, true)
+              end
               {:error, proxy}
 
             _, exp ->
               Logger.debug("proxy #{inspect(ip)} blocked by #{inspect(exp)}")
+              Luminati.Keeper.update(ip, :banned)
+              if exp not in [{:error, :connect_timeout}, {:error, :ehostunreach}]  do
+                GeoIP.update(proxy, true)
+              end
               {:error, proxy}
           end
         end)
