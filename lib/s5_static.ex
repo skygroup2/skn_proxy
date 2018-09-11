@@ -249,7 +249,9 @@ defmodule S5Proxy do
           y1 = Map.put(y, :incr, 0)
           Skn.DB.ProxyList.update_failed(y1)
           acc + 1
-        {:ok, {:error, _y}} ->
+        {:ok, {:error, y}} ->
+          y1 = Map.put(y, :incr, 1)
+          Skn.DB.ProxyList.update_failed(y1)
           acc
         _ ->
           acc
