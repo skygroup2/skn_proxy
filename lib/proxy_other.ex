@@ -119,7 +119,7 @@ defmodule ProxyOther do
 
   defp import_other_proxies(proxies) do
     Enum.reduce proxies, 0, fn(%{proxy: proxy, proxy_auth: proxy_auth, ip: ip, tag: tag}, acc) ->
-      case Skn.DB.ProxyList.get({proxy, nil}) do
+      case Skn.DB.ProxyList.get({proxy, proxy_auth}) do
       %{info: %{failed: 0}} ->
         acc
       nil ->
