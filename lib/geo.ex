@@ -246,7 +246,12 @@ defmodule GeoIP do
                   true
 
                 _ ->
-                  false
+                  case Skn.DB.ProxyList.get(proxy_id) do
+                    %{info: %{failed: 0}} ->
+                      false
+                    _ ->
+                      true
+                  end
               end
 
             if flag == false do
