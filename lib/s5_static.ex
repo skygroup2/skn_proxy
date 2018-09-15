@@ -197,7 +197,7 @@ defmodule S5Proxy do
 
     status =
       Enum.map(rets, fn x ->
-        Task.yield(x, 150_000)
+        Task.yield(x, 90_000)
       end)
     Enum.reduce(status, 0, fn (x, acc) ->
       case x do
