@@ -140,21 +140,23 @@ defmodule GeoIP do
     try do
       proxy_opts = add_proxy_option(proxy, proxy_auth, @proxy_opts)
 
-      case send_rest(:get, url, "", headers, [{:hackney, proxy_opts}], 0, 2) do
+      case send_rest(:get, url, "", headers, [{:hackney, proxy_opts}], 0, 0) do
         {:ok, response} ->
           if response.status_code == 200 do
             r = Poison.decode!(decode_gzip(response))
             normalize_geo(:luminati, r)
           else
+            Logger.error("GeoIP #{inspect print_proxy(proxy)} => #{inspect response.status_code}")
             {:error, response.status_code}
           end
 
         exp ->
+          Logger.error("GeoIP #{inspect print_proxy(proxy)} => #{inspect exp}")
           {:error, exp}
       end
     catch
       _, exp ->
-        Logger.error("trace #{inspect(System.stacktrace())}")
+        Logger.error("GeoIP #{inspect print_proxy(proxy)} => #{inspect System.stacktrace()}")
         {:error, exp}
     end
   end
@@ -380,5 +382,15 @@ defmodule GeoIP do
 
     proxy_opts = proxy_opts ++ get_if()
     proxy_opts ++ opts
+  end
+
+  defp print_proxy(proxy) do
+    case proxy do
+      {:socks5, h, p} ->
+        hs = :inet.ntoa(h)
+        "socks5:#{hs}:#{p}"
+      _ ->
+        proxy
+    end
   end
 end
