@@ -57,13 +57,6 @@ defmodule S5Proxy do
 
     if ts_now - ts_update_geo > 1200_000 do
       ips = Skn.DB.ProxyList.list_tag_by_failed(:static)
-
-      Enum.each(ips, fn x ->
-        if x[:info][:geo] == nil do
-          GeoIP.update(x, true)
-        end
-      end)
-
       send(self(), {:update, ips})
       Process.put(:ts_update_geo, ts_now)
     end
