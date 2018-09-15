@@ -481,6 +481,10 @@ defmodule Luminati.Keeper do
     {:noreply, state}
   end
 
+  def code_change(_vsn, state, _extra) do
+    {:ok, state}
+  end
+
   def terminate(_reason, %{rk: rk}) do
     Command.Router.delete(rk)
     :ok

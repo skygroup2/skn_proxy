@@ -289,6 +289,10 @@ defmodule ProxyGroup do
     {:noreply, state}
   end
 
+  def code_change(_vsn, state, _extra) do
+    {:ok, state}
+  end
+
   def terminate(reason, _state) do
     Logger.debug "stopped by #{inspect reason}"
     :ok
