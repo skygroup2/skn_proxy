@@ -158,7 +158,7 @@ defmodule S5Proxy do
             false
 
           %{info: %{failed: failed, updated: updated}} when failed > 2 ->
-            ts_now - updated >= min(failed, 120) * tm_proxy_failed
+            ts_now - updated >= min(failed - 1, 120) * tm_proxy_failed
 
           %{info: %{failed: 0, updated: updated}} ->
             (ts_now - updated) >= tm_proxy_recheck
