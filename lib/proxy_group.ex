@@ -8,6 +8,21 @@ defmodule ProxyGroup do
     reset_timer: 3
   ]
 
+  def create_table() do
+    case :ets.info(:proxy_group_super) do
+      :undefined ->
+        :ets.new(:proxy_group_super, [:public, :named_table, {:read_concurrency, true}, {:write_concurrency, true}])
+      _ ->
+        :ok
+    end
+    case :ets.info(:proxy_group_static) do
+      :undefined ->
+        :ets.new(:proxy_group_super, [:public, :named_table, {:read_concurrency, true}, {:write_concurrency, true}])
+      _ ->
+        :ok
+    end
+  end
+
   def choose(config, botid, cc, idx \\ 0) do
     proxy = config[:proxy]
     proxy_auth = config[:proxy_auth]
@@ -16,15 +31,6 @@ defmodule ProxyGroup do
       {:group, id} ->
         ret = grab_proxy(proxy_to_name({id, nil}), botid, cc, idx)
         Map.merge(ret, %{proxy_auth: new_proxy_session(ret[:proxy_auth], botid, cc)})
-
-      {:force, proxy, proxy_auth} ->
-        %{
-          proxy: proxy,
-          proxy_auth: new_proxy_session(proxy_auth, botid, cc),
-          proxy_auth_fun:
-            {__MODULE__, :choose, [%{proxy: {:force, proxy, proxy_auth}}, botid, cc, idx]}
-        }
-
       _ ->
         %{proxy: proxy, proxy_auth: new_proxy_session(proxy_auth, botid, cc)}
     end
@@ -71,32 +77,8 @@ defmodule ProxyGroup do
     :erlang.list_to_atom('proxy_group_#{id}')
   end
 
-  def update_all do
-    proxies = Skn.DB.ProxyList.list_tag(:super)
-
-    for id <- 1..groups() do
-      GenServer.cast(proxy_to_name({id, nil}), {:update, proxies})
-    end
-  end
-
-  def update_static() do
-    proxies = Skn.DB.ProxyList.list_tag(:static)
-    GenServer.cast(proxy_to_name({:static, nil}), {:update, proxies})
-  end
-
-  def remove_static_proxy(proxy) do
-    GenServer.cast(proxy_to_name({:static, nil}), {:remove, proxy})
-  end
-
-  def groups do
+  def groups() do
     2
-  end
-
-  def get_group(id) do
-    case id do
-      :static -> :proxy_group_static
-      _ -> proxy_to_name({id, nil})
-    end
   end
 
   def grab_proxy(group, botid, cc, idx) do
@@ -107,165 +89,32 @@ defmodule ProxyGroup do
     GenServer.start_link(__MODULE__, args, name: proxy_to_name(args))
   end
 
-  def stop_by(pid, reason) do
-    try do
-      GenServer.call(pid, {:stop, reason})
-    catch
-      _, _ ->
-        :ignore
-    end
-  end
-
-  def init({:static, group}) do
+  def init(id) do
     Process.flag(:trap_exit, true)
-    send(self(), {:update, group})
-    tm_proxy_sync = Skn.Config.get(:tm_proxy_sync, 1200_000)
-    reset_timer(:update_static_ref, :update_static, tm_proxy_sync)
-    {:ok, %{id: :static, group: [], ptr: :rand.uniform(5000), cc: %{}}}
+    reset_timer(:update_proxy_ref, :update_proxy, 1000)
+    {:ok, %{id: id}}
   end
 
-  def init({id, group}) do
-    Process.flag(:trap_exit, true)
-    {:ok, %{id: id, group: group, ptr: 0, cc: %{}}}
-  end
-
-  def handle_call({:set, group}, _from, state) do
-    {:reply, :ok, %{state | group: group}}
-  end
-
-  def handle_call({:get, botid, cc, idx}, _from, %{id: :static, cc: ccx, ptr: ptr} = state) do
-    cck = ccx[:list]
-    idxx = if idx == nil, do: ptr, else: idx
-    cc = if cc == nil and is_list(cck) and cck != [], do: Enum.at(cck, rem(ptr, length(cck))), else: cc
-    x =
-      if is_list(cck) and cc in cck do
-        c = cc
-        pl = Map.get(ccx, c, [])
-        if length(pl) > 0 do
-          Enum.at(pl, rem(idxx, length(pl)))
-        else
-          nil
-        end
-      else
-        nil
-      end
-
-    idxx2 = if idx == nil, do: idx, else: idx + 1
-
-    proxy =
-      case x do
-        {:socks5, _} = p ->
-          %{proxy: p}
-        {p, a} ->
-          %{
-            proxy: p,
-            proxy_auth: a,
-            proxy_auth_fun: {__MODULE__, :choose, [%{proxy: {:group, :static}}, botid, cc, idxx2]}
-          }
-        _ ->
-          %{proxy: nil, proxy_auth: nil}
-      end
-    ptr1 = if ptr + 1 > 999_999_999, do: :rand.uniform(5000), else: ptr + 1
-    {:reply, proxy, %{state | ptr: ptr1}}
-  end
-
-  def handle_call({:get, botid, cc, idx}, _from, %{id: id, group: group} = state) do
-    proxy =
-      if length(group) > 0 do
-        i = rem(:erlang.phash2(botid) + idx, length(group))
-        proxy0 = Enum.at(group, i)
-
-        case proxy0 do
-          {:socks5, _} = p ->
-            %{
-              proxy: p,
-              proxy_auth_fun: {__MODULE__, :choose, [%{proxy: {:group, id}}, botid, cc, idx + 1]}
-            }
-
-          {p, a} ->
-            %{
-              proxy: p,
-              proxy_auth: a,
-              proxy_auth_fun: {__MODULE__, :choose, [%{proxy: {:group, id}}, botid, cc, idx + 1]}
-            }
-
-          _ ->
-            %{proxy: nil, proxy_auth: nil}
-        end
-      else
-        %{proxy: nil, proxy_auth: nil}
-      end
-
+  def handle_call({:get, botid, cc, idx}, _from, %{id: id} = state) do
+    proxy = Map.merge(select_proxy(id2tab(id), cc), %{proxy_auth_fun: {__MODULE__, :choose, [%{proxy: {:group, id}}, botid, cc, idx + 1]}})
     {:reply, proxy, state}
   end
 
-  def handle_call({:stop, _}, _from, state) do
-    {:stop, :normal, :ok, state}
+  def handle_call(_request, _from, state) do
+    {:reply, :ok, state}
   end
 
-  def handle_call(request, from, state) do
-    Logger.warn("drop unknown call #{inspect(request)} from #{inspect(from)}")
-    {:reply, {:error, "badreq"}, state}
-  end
-
-  def handle_cast({:update, group}, %{id: :static} = state) do
-    ts_now = :erlang.system_time(:millisecond)
-    ts_updated = Process.get(:ts_updated, 0)
-    if (ts_now - ts_updated) >= 20_000 do
-      Process.get(:ts_updated, ts_now)
-      s5_proxy_force_cc = Skn.Config.get(:s5_proxy_force_cc, "cn")
-      cc =
-        Enum.reduce(group, %{}, fn v, acc ->
-          ip2 =
-            case Skn.DB.ProxyIP2.read(v[:ip]) do
-              nil ->
-                Luminati.Keeper.update(v[:ip], :ok)
-                %{info: %{}}
-
-              v1 ->
-                v1
-            end
-          geox = if v[:info][:geo] != nil, do: v[:info][:geo], else: ip2[:info][:geo]
-          if s5_proxy_force_cc == nil do
-            case geox do
-              nil ->
-                GeoIP.update(v[:ip], true)
-                acc
-
-              geo ->
-                cck = String.downcase(geo["country_code"])
-                l = :sets.to_list(:sets.add_element(cck, :sets.from_list(Map.get(acc, :list, []))))
-                ccm = Map.get(acc, cck, [])
-                pl = Enum.sort [v[:id]| ccm]
-                acc = Map.put(acc, :list, l)
-                Map.put(acc, cck, pl)
-            end
-          else
-            cck = s5_proxy_force_cc
-            l = :sets.to_list(:sets.add_element(cck, :sets.from_list(Map.get(acc, :list, []))))
-            ccm = Map.get(acc, cck, [])
-            pl = Enum.sort [v[:id]| ccm]
-            acc = Map.put(acc, :list, l)
-            Map.put(acc, cck, pl)
-          end
-        end)
-
-      {:noreply, %{state | cc: cc}}
-    else
-      {:noreply, state}
-    end
-  end
-
-  def handle_cast({:update, group}, %{ptr: ptr} = state) do
-    group1 = Enum.map(group, fn v -> v[:id] end)
-    ptr = if ptr >= length(group1), do: 0, else: ptr
-    {:noreply, %{state | group: group1, ptr: ptr}}
-  end
-
-  def handle_cast({:remove, proxy}, %{ptr: ptr, group: group0} = state) do
-    group = List.delete(group0, proxy[:id])
-    ptr = if ptr >= length(group), do: 0, else: ptr
-    {:noreply, %{state | group: group, ptr: ptr}}
+  def handle_cast({:update, group}, %{id: id} = state) do
+    s5_proxy_force_cc =
+      if id == :static do
+        Skn.Config.get(:s5_proxy_force_cc, "cn")
+      else
+        nil
+      end
+    Enum.each(group, fn x ->
+      update_proxy(id2tab(id), x, s5_proxy_force_cc)
+    end)
+    {:noreply, state}
   end
 
   def handle_cast(request, state) do
@@ -273,10 +122,15 @@ defmodule ProxyGroup do
     {:noreply, state}
   end
 
-  def handle_info(:update_static, state) do
-    proxies = Skn.DB.ProxyList.list_tag(:static)
+  def handle_info(:update_proxy, %{id: id} = state) do
+    proxies =
+      if id == :static do
+        Skn.DB.ProxyList.list_tag(:static)
+      else
+        Skn.DB.ProxyList.list_tag(:super)
+      end
     tm_proxy_sync = Skn.Config.get(:tm_proxy_sync, 1200_000)
-    reset_timer(:update_static_ref, :update_static, tm_proxy_sync)
+    reset_timer(:update_proxy_ref, :update_proxy, tm_proxy_sync)
     handle_cast({:update, proxies}, state)
   end
 
@@ -296,5 +150,56 @@ defmodule ProxyGroup do
   def terminate(reason, _state) do
     Logger.debug "stopped by #{inspect reason}"
     :ok
+  end
+
+  defp update_proxy(tab, %{id: {proxy, proxy_auth}, info: info}, s5_proxy_force_cc) do
+    cc = if s5_proxy_force_cc == nil, do: info[:geo]["country_code"], else: s5_proxy_force_cc
+    case :ets.match_object(tab, {{:_, proxy}, :_, :_}) do
+      [] ->
+        :ets.insert(tab, {{0, proxy}, proxy_auth, info[:proxy_remote], cc})
+      [{id, _, _, _}] ->
+        :ets.insert(tab, {id, proxy_auth, info[:proxy_remote], cc})
+    end
+  end
+
+  defp select_proxy(tab, cc) do
+    if cc == nil do
+      case :ets.first(tab) do
+        :'$end_of_table' ->
+          %{proxy: nil, proxy_auth: nil, proxy_remote: nil}
+        key ->
+          [{{cnt, proxy}, proxy_auth, proxy_remote, proxy_cc}] = :ets.lookup(tab, key)
+          :ets.insert(tab, {{cnt + 1, proxy}, proxy_auth, proxy_remote, proxy_cc})
+          %{proxy: proxy, proxy_auth: proxy_auth, proxy_remote: proxy_remote}
+      end
+    else
+      ms =
+        [{
+          {:_, :_, :_, :"$1"}, [{:orelse, {:==, :"$1", nil}, {:==, :"$1", cc}}], [:"$_"]
+        }]
+
+      case :ets.select(tab, ms, 1) do
+        {[{{cnt, proxy}, proxy_auth, proxy_remote, proxy_cc}], _} ->
+          :ets.insert(tab, {{cnt + 1, proxy}, proxy_auth, proxy_remote, proxy_cc})
+          %{proxy: proxy, proxy_auth: proxy_auth, proxy_remote: proxy_remote}
+        _ ->
+          %{proxy: nil, proxy_auth: nil, proxy_remote: nil}
+      end
+    end
+  end
+
+  defp id2tab(:static), do: :proxy_group_static
+  defp id2tab(_), do: :proxy_group_super
+
+  def update_all() do
+    proxies = Skn.DB.ProxyList.list_tag(:super)
+    for id <- 1..groups() do
+      GenServer.cast(proxy_to_name({id, nil}), {:update, proxies})
+    end
+  end
+
+  def update_static() do
+    proxies = Skn.DB.ProxyList.list_tag(:static)
+    GenServer.cast(proxy_to_name({:static, nil}), {:update, proxies})
   end
 end

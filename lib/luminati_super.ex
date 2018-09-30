@@ -35,15 +35,15 @@ defmodule Luminati.Sup do
     end
   end
 
-  def start_proxy_group_super do
+  def start_proxy_group_super() do
     for id <- 1..ProxyGroup.groups() do
-      start_proxy_group(id, :super)
+      start_proxy_group(id)
     end
 
     :ok
   end
 
-  def start_proxy_group(id, group \\ nil) do
+  def start_proxy_group(id) do
     opts = [
       id: id,
       function: :start_link,
@@ -52,14 +52,7 @@ defmodule Luminati.Sup do
       modules: [ProxyGroup]
     ]
 
-    group =
-      case group do
-        nil -> Enum.shuffle(Skn.DB.ProxyList.list_tag(id))
-        :super -> Enum.shuffle(Skn.DB.ProxyList.list_tag(:super))
-        _ -> group
-      end
-
-    {:ok, _} = Supervisor.start_child(@name, worker(ProxyGroup, [{id, group}], opts))
+    {:ok, _} = Supervisor.start_child(@name, worker(ProxyGroup, [id], opts))
   end
 
   def start_proxy_super() do

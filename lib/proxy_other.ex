@@ -30,14 +30,18 @@ defmodule ProxyOther do
   def handle_info(:check_tick, state) do
     try do
       case Skn.Config.get(:proxy_hulk_auth) do
-        {username, password} ->
-          grab_proxy_hulk(username, password) |> import_other_proxies()
+        v when is_list(v) ->
+          Enum.each v, fn {username, password, proxy_ip}  ->
+            grab_proxy_hulk(username, password, proxy_ip) |> import_other_proxies()
+          end
         _ ->
           :ok
       end
       case Skn.Config.get(:proxy_fine_auth) do
-        {username, password} ->
-          grab_fine_proxy(username, password) |> import_other_proxies()
+        v when is_list(v) ->
+          Enum.each v, fn {username, password, proxy_ip} ->
+            grab_fine_proxy(username, password, proxy_ip) |> import_other_proxies()
+          end
         _ ->
           :ok
       end
@@ -63,7 +67,7 @@ defmodule ProxyOther do
     :ok
   end
 
-  def grab_proxy_hulk(username, _password) do
+  def grab_proxy_hulk(username, _password, proxy_ip) do
     {:ok, x} = HTTPoison.get "https://www.proxyhulk.com/list/getmylist.php?type=socks&user=#{username}"
     <<239, 187, 191, body :: binary>> = x.body
     res = String.replace(body, "<br />", "")
@@ -80,7 +84,7 @@ defmodule ProxyOther do
           case check_ipv4(ip) do
             {true, :public} ->
               {:ok, addr} = :inet.parse_ipv4_address(:erlang.binary_to_list(ip))
-              %{proxy: {:socks5, addr, port}, ip: ip, proxy_auth: nil, tag: :hulk}
+              %{proxy: {:socks5, addr, port}, ip: ip, proxy_auth: nil, tag: :hulk, info: %{proxy_remote: format_remote_proxy(proxy_ip)}}
             _ ->
               nil
           end
@@ -91,7 +95,7 @@ defmodule ProxyOther do
     Enum.filter res4, fn x -> is_map(x) end
   end
 
-  def grab_fine_proxy(username, password) do
+  def grab_fine_proxy(username, password, proxy_ip) do
     {:ok, x} = HTTPoison.get "http://account.fineproxy.org/api/getproxy/?format=txt&type=socksip&login=#{username}&password=#{password}"
     res2 = :binary.split x.body, "\r\n", [:global]
     res3 = Enum.map res2, fn (x) ->
@@ -106,7 +110,7 @@ defmodule ProxyOther do
           case check_ipv4(ip) do
             {true, :public} ->
               {:ok, addr} = :inet.parse_ipv4_address(:erlang.binary_to_list(ip))
-              %{proxy: {:socks5, addr, port}, ip: ip, proxy_auth: nil, tag: :fineproxy}
+              %{proxy: {:socks5, addr, port}, ip: ip, proxy_auth: nil, tag: :fineproxy, info: %{proxy_remote: format_remote_proxy(proxy_ip)}}
             _ ->
               nil
           end
@@ -129,6 +133,23 @@ defmodule ProxyOther do
       _ ->
         acc
       end
+    end
+  end
+
+  def format_remote_proxy(addr) when is_tuple(addr) do
+    {addr, 25555}
+  end
+
+  def format_remote_proxy(addr) when is_binary(addr) do
+    format_remote_proxy(:erlang.binary_to_list(addr))
+  end
+
+  def format_remote_proxy(addr) do
+    case :inet.parse_ipv4strict_address(addr) do
+      {:ok, x} ->
+        {x, 25555}
+      _ ->
+        nil
     end
   end
 end

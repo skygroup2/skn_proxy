@@ -148,9 +148,6 @@ defmodule Luminati.Static do
 
             Enum.each(indb, fn x ->
               if x[:ip] in ips0 == false do
-                #                        info1 = Map.merge(x[:info], %{status: :refresh, failed: 5})
-                #                        x1 = Map.put x, :info, info1
-                #                        Skn.DB.ProxyList.write(x1)
                 Skn.DB.ProxyList.delete(x[:id])
               end
             end)
