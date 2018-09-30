@@ -17,7 +17,7 @@ defmodule ProxyGroup do
     end
     case :ets.info(:proxy_group_static) do
       :undefined ->
-        :ets.new(:proxy_group_super, [:public, :named_table, {:read_concurrency, true}, {:write_concurrency, true}])
+        :ets.new(:proxy_group_static, [:public, :named_table, {:read_concurrency, true}, {:write_concurrency, true}])
       _ ->
         :ok
     end
