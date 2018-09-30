@@ -8,7 +8,7 @@ defmodule ProxyGroup do
     reset_timer: 3
   ]
 
-  def create_table() do
+  def create_db() do
     case :ets.info(:proxy_group_super) do
       :undefined ->
         :ets.new(:proxy_group_super, [:public, :named_table, {:read_concurrency, true}, {:write_concurrency, true}])
