@@ -85,8 +85,8 @@ defmodule ProxyGroup do
     GenServer.call(group, {:get, botid, cc, idx}, 60000)
   end
 
-  def start_link(args) do
-    GenServer.start_link(__MODULE__, args, name: proxy_to_name(args))
+  def start_link(id) do
+    GenServer.start_link(__MODULE__, id, name: proxy_to_name({id, nil}))
   end
 
   def init(id) do
