@@ -159,7 +159,8 @@ defmodule ProxyGroup do
     case :ets.match_object(tab, {{:_, proxy}, :_, :_}) do
       [] ->
         :ets.insert(tab, {{0, proxy}, proxy_auth, info[:proxy_remote], cc})
-      [{id, _, _, _}] ->
+      [{id, _, _, _}|r] ->
+        Enum.each r, fn {k, _, _, _} -> :ets.delete(tab, k) end
         :ets.insert(tab, {id, proxy_auth, info[:proxy_remote], cc})
     end
   end
@@ -171,6 +172,7 @@ defmodule ProxyGroup do
           %{proxy: nil, proxy_auth: nil, proxy_remote: nil}
         key ->
           [{{cnt, proxy}, proxy_auth, proxy_remote, proxy_cc}] = :ets.lookup(tab, key)
+          :ets.delete(tab, key)
           :ets.insert(tab, {{cnt + 1, proxy}, proxy_auth, proxy_remote, proxy_cc})
           %{proxy: proxy, proxy_auth: proxy_auth, proxy_remote: proxy_remote}
       end
@@ -182,6 +184,7 @@ defmodule ProxyGroup do
 
       case :ets.select(tab, ms, 1) do
         {[{{cnt, proxy}, proxy_auth, proxy_remote, proxy_cc}], _} ->
+          :ets.delete(tab, {cnt, proxy})
           :ets.insert(tab, {{cnt + 1, proxy}, proxy_auth, proxy_remote, proxy_cc})
           %{proxy: proxy, proxy_auth: proxy_auth, proxy_remote: proxy_remote}
         _ ->
