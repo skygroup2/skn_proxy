@@ -96,7 +96,9 @@ defmodule ProxyGroup do
   end
 
   def handle_call({:get, botid, cc, idx}, _from, %{id: id} = state) do
-    proxy = Map.merge(select_proxy(id2tab(id), cc), %{proxy_auth_fun: {__MODULE__, :choose, [%{proxy: {:group, id}}, botid, cc, idx + 1]}})
+    r = select_proxy(id2tab(id), cc)
+    idx2 = if is_integer(idx), do: idx + 1, else: idx
+    proxy = Map.merge(r, %{proxy_auth_fun: {__MODULE__, :choose, [%{proxy: {:group, id}}, botid, cc, idx2]}})
     {:reply, proxy, state}
   end
 
