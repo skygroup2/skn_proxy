@@ -144,12 +144,16 @@ defmodule ProxyOther do
     format_remote_proxy(:erlang.binary_to_list(addr))
   end
 
-  def format_remote_proxy(addr) do
+  def format_remote_proxy(addr) when is_list(addr) do
     case :inet.parse_ipv4strict_address(addr) do
       {:ok, x} ->
         {x, 25555}
       _ ->
         nil
     end
+  end
+
+  def format_remote_proxy(_) do
+    nil
   end
 end
