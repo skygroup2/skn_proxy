@@ -156,7 +156,7 @@ defmodule ProxyGroup do
 
   defp update_proxy(tab, %{id: {proxy, proxy_auth}, info: info}, s5_proxy_force_cc) do
     cc = if s5_proxy_force_cc == nil, do: info[:geo]["country_code"], else: s5_proxy_force_cc
-    case :ets.match_object(tab, {{:_, proxy}, :_, :_}) do
+    case :ets.match_object(tab, {{:_, proxy}, :_, :_, :_}) do
       [] ->
         :ets.insert(tab, {{0, proxy}, proxy_auth, info[:proxy_remote], cc})
       [{id, _, _, _}|r] ->
