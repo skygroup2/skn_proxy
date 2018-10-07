@@ -171,10 +171,14 @@ defmodule ProxyGroup do
         :'$end_of_table' ->
           %{proxy: nil, proxy_auth: nil, proxy_remote: nil}
         key when is_tuple(key) ->
-          [{{cnt, proxy}, proxy_auth, proxy_remote, proxy_cc}] = :ets.lookup(tab, key)
-          :ets.delete(tab, key)
-          :ets.insert(tab, {{cnt + 1, proxy}, proxy_auth, proxy_remote, proxy_cc})
-          %{proxy: proxy, proxy_auth: proxy_auth, proxy_remote: proxy_remote}
+          case :ets.lookup(tab, key) do
+            [] ->
+              select_proxy(tab, cc)
+            [{{cnt, proxy}, proxy_auth, proxy_remote, proxy_cc}] ->
+              :ets.delete(tab, key)
+              :ets.insert(tab, {{cnt + 1, proxy}, proxy_auth, proxy_remote, proxy_cc})
+              %{proxy: proxy, proxy_auth: proxy_auth, proxy_remote: proxy_remote}
+          end
         key ->
           :ets.delete(tab, key)
           select_proxy(tab, cc)
