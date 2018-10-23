@@ -41,7 +41,7 @@ defmodule Skn.Proxy.RestApi do
 
   def handle(req, state) do
     try do
-      {path, _} = :cowboy_req.path(req)
+      path = :cowboy_req.path(req)
       {code, respb} = route_and_process(path, req)
       headers = %{"content-type" => "text/html; charset=utf-8"}
       req2 = :cowboy_req.reply(code, headers, respb, req)
