@@ -48,8 +48,8 @@ defmodule Skn.Proxy.RestApi do
       {:ok, req2, state}
     catch
       _, exp ->
-        Logger.error "counter exp #{inspect exp}"
-        Logger.error "counter trace #{inspect System.stacktrace()}"
+        Logger.error "proxy exp #{inspect exp}"
+        Logger.error "proxy trace #{inspect System.stacktrace()}"
         headers = %{"content-type" => "text/html; charset=utf-8"}
         req2 = :cowboy_req.reply(500, headers, "0", req)
         {:ok, req2, state}
