@@ -14,7 +14,7 @@ defmodule Skn.Proxy.RestApi do
     pips = :erlang.iolist_to_binary(:inet.ntoa(pip))
     if method == "POST" do
       # new report api
-      {:ok, body, _req} = :cowboy_req.read_body(req1)
+      {:ok, body, _req} = :cowboy_req.read_body(req)
       js = Poison.decode!(body)
       ssh_ip = js["ssh_ip"]
       ssh_port = js["ssh_port"]
