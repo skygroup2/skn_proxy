@@ -43,15 +43,15 @@ defmodule Skn.Proxy.RestApi do
     try do
       {path, _} = :cowboy_req.path(req)
       {code, respb} = route_and_process(path, req)
-      headers = [{"content-type", "text/html; charset=utf-8"}]
-      {:ok, req2} = :cowboy_req.reply(code, headers, respb, req)
+      headers = %{"content-type" => "text/html; charset=utf-8"}
+      req2 = :cowboy_req.reply(code, headers, respb, req)
       {:ok, req2, state}
     catch
       _, exp ->
         Logger.error "counter exp #{inspect exp}"
         Logger.error "counter trace #{inspect System.stacktrace()}"
-        headers = [{"content-type", "text/html; charset=utf-8"}]
-        {:ok, req2} = :cowboy_req.reply(500, headers, "0", req)
+        headers = %{"content-type" => "text/html; charset=utf-8"}
+        req2 = :cowboy_req.reply(500, headers, "0", req)
         {:ok, req2, state}
     end
   end
