@@ -198,6 +198,17 @@ defmodule Skn.DB.ProxyList do
         id = Skn.Proxy.Repo.proxy_blocked(c, :id)
         :mnesia.dirty_delete(:proxy_blocked, id)
       end
+      Enum.reduce(cx, [], fn c, acc ->
+        id = Skn.Proxy.Repo.proxy_blocked(c, :id)
+        case id do
+          {proxy, _} ->
+            [proxy| acc]
+          true ->
+            acc
+        end
+      end)
+    else
+      []
     end
   end
 

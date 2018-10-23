@@ -113,6 +113,9 @@ defmodule ProxyGroup do
       else
         nil
       end
+    if id == :static and Skn.Config.get(:s5_proxy_clean_update, false) == true do
+      :ets.delete_all_objects(id2tab(id))
+    end
     Enum.each(group, fn x ->
       update_proxy(id2tab(id), x, s5_proxy_force_cc)
     end)

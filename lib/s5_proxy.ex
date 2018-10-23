@@ -118,7 +118,8 @@ defmodule S5Proxy do
           :ok
 
         _ ->
-          Skn.DB.ProxyList.delete_by_assign(p[:assign])
+          ids = Skn.DB.ProxyList.delete_by_assign(p[:assign])
+          Enum.each ids, fn x -> ProxyGroup.delete_static_proxy(x) end
           Skn.DB.ProxyList.write(p)
           ProxyGroup.update_static()
       end
