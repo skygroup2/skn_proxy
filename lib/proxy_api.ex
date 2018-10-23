@@ -4,8 +4,8 @@ defmodule Skn.Proxy.RestApi do
   """
   require Logger
 
-  def init(_, req, _opts) do
-    {:ok, req, %{}}
+  def init(req, opts) do
+    handle(req, opts)
   end
 
   def route_and_process("/api/adsl_report", req) do
