@@ -200,6 +200,10 @@ defmodule ProxyGroup do
     end
   end
 
+  def delete_static_proxy(proxy) do
+    :ets.match_delete(:proxy_group_static, {{:_, proxy}, :_, :_, :_})
+  end
+
   defp id2tab(:static), do: :proxy_group_static
   defp id2tab(_), do: :proxy_group_super
 
