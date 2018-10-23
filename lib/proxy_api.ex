@@ -9,8 +9,8 @@ defmodule Skn.Proxy.RestApi do
   end
 
   def route_and_process("/api/adsl_report", req) do
-    {method, req0} = :cowboy_req.method(req)
-    {{pip, _pport}, req1} = :cowboy_req.peer(req0)
+    method = :cowboy_req.method(req)
+    {pip, _pport} = :cowboy_req.peer(req0)
     pips = :erlang.iolist_to_binary(:inet.ntoa(pip))
     if method == "POST" do
       # new report api
