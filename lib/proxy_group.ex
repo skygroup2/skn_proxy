@@ -63,9 +63,13 @@ defmodule ProxyGroup do
     end
   end
 
-  def bot_country(id, _cc) do
-    default_cc = ["us", "ca", "gb"]
-    Enum.at(default_cc, rem(id, 3))
+  def bot_country(id, cc) do
+    if cc != nil do
+      cc
+    else
+      default_cc = ["us", "ca", "gb"]
+      Enum.at(default_cc, rem(id, 3))
+    end
   end
 
   def proxy_to_name({:choose, x}) do
