@@ -122,16 +122,16 @@ defmodule ProxyOther do
   end
 
   defp import_other_proxies(proxies) do
-    Enum.reduce proxies, 0, fn(%{proxy: proxy, proxy_auth: proxy_auth, ip: ip, tag: tag}, acc) ->
+    Enum.reduce proxies, 0, fn(%{proxy: proxy, proxy_auth: proxy_auth, ip: ip, tag: tag, info: info}, acc) ->
       case Skn.DB.ProxyList.get({proxy, proxy_auth}) do
-      %{info: %{failed: 0}} ->
+      %{info: i} ->
+        r = %{id: {proxy, proxy_auth}, ip: ip, tag: :static, assign: tag, info: Map.merge(i, info)}
+        Skn.DB.ProxyList.write(r)
         acc
       nil ->
-        r = %{id: {proxy, proxy_auth}, ip: ip, tag: :static, assign: tag, info: %{failed: 1}}
+        r = %{id: {proxy, proxy_auth}, ip: ip, tag: :static, assign: tag, info: Map.merge(info, %{failed: 1})}
         Skn.DB.ProxyList.write(r)
         acc + 1
-      _ ->
-        acc
       end
     end
   end
