@@ -173,10 +173,10 @@ defmodule S5Proxy do
         Task.async(fn ->
           ip = proxy[:ip]
           {p, pa} = proxy[:id]
-
+          pi = proxy[:info][:proxy_remote]
           try do
             if handle != nil do
-              handle.(proxy, %{proxy: p, proxy_auth: pa})
+              handle.(proxy, %{proxy: p, proxy_auth: pa, proxy_remote: pi})
             else
               {:ok, proxy}
             end
