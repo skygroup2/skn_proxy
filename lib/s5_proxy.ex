@@ -72,7 +72,7 @@ defmodule S5Proxy do
       n = validate_static_proxy(handle, x)
       acc + n
     end)
-    if new > 0 do
+    if new > Skn.Config.get(:update_static_new, 100) do
       ProxyGroup.update_static()
       if Skn.Config.get(:sync_static, false) == true do
         Skn.DB.ProxyList.sync_static()
