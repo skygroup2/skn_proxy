@@ -263,7 +263,7 @@ defmodule Skn.DB.ProxyList do
     ips = :mnesia.dirty_select(:proxy_blocked, [{mh, mg, [mr]}])
     ips = Enum.map ips, fn {id, ip, assign, info} -> %{id: id, ip: ip, tag: tag, assign: assign, info: info} end
     Enum.filter ips, fn x ->
-      ensure_geo(x) == nil or Map.get(x[:info], :failed, 0) > failed
+      Map.get(x[:info], :failed, 0) > failed
     end
   end
 
