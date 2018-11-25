@@ -1,5 +1,7 @@
 defmodule Skn.Proxy.Repo do
-  use Ecto.Repo, otp_app: :skn_proxy
+  use Ecto.Repo,
+    otp_app: :skn_proxy,
+    adapter: Ecto.Adapters.Postgres
   require Record
 
   @proxy_blocked_fields [id: :nil, ip: "", tag: :static, assign: :farmer, info: %{}]

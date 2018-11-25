@@ -28,6 +28,7 @@ defmodule SknProxy.MixProject do
       {:ranch, "~> 1.6", override: true},
       {:cowboy, "~> 2.4"},
       {:ecto, "~> 3.0"},
+      {:ecto_sql, "~> 3.0"},
       {:postgrex, "~> 0.14.1"},
     ]
   end

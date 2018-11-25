@@ -6,10 +6,8 @@ config :skn_proxy,
 
 config :skn_proxy,
   Skn.Proxy.Repo,
-  adapter: Ecto.Adapters.Postgres,
   username: "freevpn",
   password: "freevpn@#*",
   database: "freevpn",
   hostname: "127.0.0.1",
-  pool_size: 2,
-  loggers: []
+  pool_size: 2
