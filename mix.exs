@@ -27,7 +27,8 @@ defmodule SknProxy.MixProject do
       {:lager, "~> 3.6", override: true},
       {:ranch, "~> 1.6", override: true},
       {:cowboy, "~> 2.4"},
-      {:ecto, "~> 2.2"}
+      {:ecto, "~> 3.0"},
+      {:postgrex, "~> 0.14.1"},
     ]
   end
 end
