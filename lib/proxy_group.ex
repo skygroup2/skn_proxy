@@ -86,7 +86,7 @@ defmodule ProxyGroup do
   end
 
   def grab_proxy(group, botid, cc, idx) do
-    GenServer.call(group, {:get, botid, cc, idx}, 60000)
+    GenServer.call(group, {:get, botid, cc, idx}, 90000)
   end
 
   def start_link(id) do
