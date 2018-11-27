@@ -44,7 +44,7 @@ defmodule Skn.Proxy.Repo.GeoIP do
     field :country, :string
     field :geo, :map
 
-    timestamps()
+    timestamps([type: :utc_datetime_usec])
   end
 
   def changeset(%GeoIP{} = card_info, attrs) do
@@ -70,7 +70,7 @@ defmodule Skn.Proxy.Repo.FreeProxy do
     field :status, :integer
     field :info, :map
 
-    timestamps()
+    timestamps([type: :utc_datetime_usec])
   end
 
   def changeset(%FreeProxy{} = card_info, attrs) do
