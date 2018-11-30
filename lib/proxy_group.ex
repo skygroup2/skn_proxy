@@ -111,17 +111,19 @@ defmodule ProxyGroup do
   end
 
   def handle_cast({:update, group}, %{id: id} = state) do
-    s5_proxy_force_cc =
-      if id == :static do
-        Skn.Config.get(:s5_proxy_force_cc, "cn")
-      else
-        nil
+    spawn(fn ->
+      s5_proxy_force_cc =
+        if id == :static do
+          Skn.Config.get(:s5_proxy_force_cc, "cn")
+        else
+          nil
+        end
+      if id == :static and Skn.Config.get(:s5_proxy_clean_update, false) == true do
+        :ets.delete_all_objects(id2tab(id))
       end
-    if id == :static and Skn.Config.get(:s5_proxy_clean_update, false) == true do
-      :ets.delete_all_objects(id2tab(id))
-    end
-    Enum.each(group, fn x ->
-      update_proxy(id2tab(id), x, s5_proxy_force_cc)
+      Enum.each(group, fn x ->
+        update_proxy(id2tab(id), x, s5_proxy_force_cc)
+      end)
     end)
     {:noreply, state}
   end
