@@ -10,6 +10,9 @@ defmodule Skn.Proxy.Repo do
   @proxy_ip2_fields [id: "", keeper: 0, info: %{}]
   Record.defrecord :proxy_ip2, @proxy_ip2_fields
 
+  @proxy_dial_fields [id: "", ssh: {}, ts_reset: 0, ts_active: 0, info: %{}]
+  Record.defrecord :proxy_dial, @proxy_dial_fields
+
   def fields(x) do
     Keyword.keys x
   end
@@ -22,6 +25,10 @@ defmodule Skn.Proxy.Repo do
     :mnesia.create_table(
       :proxy_ip2,
       [disc_copies: [node()], record_name: :proxy_ip2, index: [:keeper], attributes: fields(@proxy_ip2_fields)]
+    )
+    :mnesia.create_table(
+      :proxy_dial,
+      [disc_copies: [node()], record_name: :proxy_dial, index: [:ssh], attributes: fields(@proxy_dial_fields)]
     )
   end
 

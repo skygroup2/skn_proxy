@@ -99,15 +99,15 @@ defmodule S5Proxy do
     :ok
   end
 
-  def try_to_update_adsl(%{ssh_ip: ssh_ip, ssh_port: ssh_port, ip: ip, port: port}) do
+  def try_to_update_adsl(%{ssh_ip: ssh_ip, ssh_port: ssh_port, tag: tag, ip: ip, port: port}) do
     try do
       {:ok, naddr} = :inet.parse_ipv4_address(:erlang.binary_to_list(ip))
       ts_now = :erlang.system_time(:millisecond)
-
+      i_tag = if tag == "" or tag == "static", do: :static, else: tag
       p = %{
         id: {{:socks5, naddr, port}, nil},
         ip: ip,
-        tag: :static,
+        tag: i_tag,
         assign: format_ssh_ip_assign(ssh_ip, ssh_port),
         info: %{updated: ts_now, geo: %{"country_code" => "cn", "ip" => ip}},
         incr: 0
@@ -118,10 +118,9 @@ defmodule S5Proxy do
           :ok
 
         _ ->
-          ids = Skn.DB.ProxyList.delete_by_assign(p[:assign])
-          Enum.each ids, fn x -> ProxyGroup.delete_static_proxy(x) end
+          Skn.DB.ProxyList.delete_by_assign(p[:assign])
           Skn.DB.ProxyList.write(p)
-          ProxyGroup.update_static()
+          Skn.DB.ProxyDial.delete_by(p[:assign])
       end
     catch
       _, _ ->

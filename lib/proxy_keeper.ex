@@ -358,8 +358,8 @@ defmodule Luminati.Keeper do
         pinned_reset = Skn.Config.get(:luminati_pin_reset, 2 * 3600_000)
         pinned_age_min = Skn.Config.get(:luminati_pin_age, 1200_000)
         def_week_max = Skn.Config.get(:luminati_week_per_ip, 2)
-        geo = Map.get(v1[:info], :geo, %{"country_code" => "VN"})
-        cc = if is_map(geo), do: geo["country_code"], else: "VN"
+        geo = Map.get(v1[:info], :geo, %{"country_code" => "us"})
+        cc = if is_map(geo), do: geo["country_code"], else: "us"
         geo_week_max = Skn.Config.get({:luminati_week_per_ip, cc}, def_week_max)
         strict_ip = Skn.Config.get(:luminati_strict_ip, true)
         is_ok = status == :ok or v1[:info][:status] == :ok
@@ -374,8 +374,6 @@ defmodule Luminati.Keeper do
         else
           rpc_reply(h, from, {:check_error, ip, v1[:info][:status], v1[:info][:week]})
         end
-
-        #            rpc_reply(h, from, {:check_ack, ip})
     end
 
     {:noreply, state}

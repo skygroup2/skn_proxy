@@ -18,6 +18,7 @@ defmodule Skn.Proxy.RestApi do
       js = Poison.decode!(body)
       ssh_ip = js["ssh_ip"]
       ssh_port = js["ssh_port"]
+      tag = Map.get(js, "tag", "")
       ip = pips
       port = js["port"]
       case Skn.Util.check_ipv4(ip) do
@@ -25,7 +26,7 @@ defmodule Skn.Proxy.RestApi do
           if pips != js["ip"] do
             Logger.error("ADSL #{ssh_ip}:#{ssh_port} wrong report #{pips} vs #{js["ip"]}")
           end
-          S5Proxy.update_adsl(%{ssh_ip: ssh_ip, ssh_port: ssh_port, ip: ip, port: port})
+          S5Proxy.update_adsl(%{ssh_ip: ssh_ip, ssh_port: ssh_port, tag: tag, ip: ip, port: port})
         _ ->
           Logger.error("ADSL is not public ip address #{inspect js}")
       end
