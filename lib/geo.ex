@@ -143,7 +143,7 @@ defmodule GeoIP do
       case send_rest(:get, url, "", headers, [{:hackney, proxy_opts}], 0, 0) do
         {:ok, response} ->
           if response.status_code == 200 do
-            r = Poison.decode!(decode_gzip(response))
+            r = Jason.decode!(decode_gzip(response))
             normalize_geo(:luminati, r)
           else
             Logger.error("GeoIP #{inspect print_proxy(proxy)} => #{inspect response.status_code}")
@@ -175,7 +175,7 @@ defmodule GeoIP do
       case send_rest(:get, url, "", headers, [{:hackney, proxy_opts}], 0, 2) do
         {:ok, response} ->
           if response.status_code == 200 do
-            r = Poison.decode!(decode_gzip(response))
+            r = Jason.decode!(decode_gzip(response))
             normalize_geo(:freegeoip, r)
           else
             {:error, response.status_code}

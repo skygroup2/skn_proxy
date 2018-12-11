@@ -40,7 +40,7 @@ defmodule Luminati.Static do
     }
 
     body =
-      Poison.encode!(%{email: email, password: password, customer: account, zone: zone, ips: ips})
+      Jason.encode!(%{email: email, password: password, customer: account, zone: zone, ips: ips})
 
     ret = HTTPoison.request(:post, url, body, headers, proxy_opts)
 

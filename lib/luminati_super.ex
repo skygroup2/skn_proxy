@@ -271,7 +271,7 @@ defmodule Luminati.Super do
       case HTTPoison.request(:get, "http://#{ip}:22225/ping", "", [], [{:hackney, opts}]) do
         {:ok, ret} ->
           if ret.status_code == 200 do
-            x = Poison.decode!(decode_gzip(ret))
+            x = Jason.decode!(decode_gzip(ret))
             svc = Map.get(x, "svc", %{})
             Map.get(svc, "has_internet", 0) == 1
           else

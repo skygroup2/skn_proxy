@@ -25,6 +25,7 @@ defmodule SknProxy.MixProject do
       {:skn_proto, git: "git@gitlab.com:gskynet/skn_proto.git", branch: "master"},
       {:skn_bus, git: "git@gitlab.com:gskynet/skn_bus.git", branch: "master"},
       {:lager, "~> 3.6", override: true},
+      {:ranch, "~> 1.7", override: true},
       {:cowboy, "~> 2.6"},
       {:ecto, "~> 3.0"},
       {:ecto_sql, "~> 3.0"},
