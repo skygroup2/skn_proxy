@@ -33,11 +33,13 @@ defmodule Skn.DB.ProxyDial do
     :mnesia.dirty_delete(:proxy_dial, id)
   end
 
-  def delete_by(ssh) do
+  def delete_by(proxy, ssh) do
     v = :mnesia.dirty_index_read(:proxy_dial, ssh, 3)
     Enum.each v, fn x ->
       pp = to_map(x)
-      delete(pp.id)
+      if pp.id != proxy do
+        delete(pp.id)
+      end
     end
   end
 

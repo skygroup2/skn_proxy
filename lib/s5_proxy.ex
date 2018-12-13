@@ -120,7 +120,7 @@ defmodule S5Proxy do
         _ ->
           Skn.DB.ProxyList.delete_by_assign(p[:assign])
           Skn.DB.ProxyList.write(p)
-          Skn.DB.ProxyDial.delete_by(p[:assign])
+          Skn.DB.ProxyDial.delete_by({:socks5, naddr, port}, p[:assign])
       end
     catch
       _, _ ->
