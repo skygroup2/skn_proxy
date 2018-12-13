@@ -183,17 +183,11 @@ defmodule S5Proxy do
             _, {:change_ip, exp} ->
               Logger.debug("proxy #{inspect(ip)} blocked by #{inspect(exp)}")
               Luminati.Keeper.update(ip, :banned)
-              if exp not in [{:error, :connect_timeout}, {:error, :ehostunreach}]  do
-                GeoIP.update(proxy, true)
-              end
               {:error, proxy}
 
             _, exp ->
               Logger.debug("proxy #{inspect(ip)} blocked by #{inspect(exp)}")
               Luminati.Keeper.update(ip, :banned)
-              if exp not in [{:error, :connect_timeout}, {:error, :ehostunreach}]  do
-                GeoIP.update(proxy, true)
-              end
               {:error, proxy}
           end
         end)
@@ -211,6 +205,7 @@ defmodule S5Proxy do
           Skn.DB.ProxyList.update_failed(y1)
           acc + 1
         {:ok, {:error, y}} ->
+          GeoIP.update(y, true)
           y1 = Map.put(y, :incr, 1)
           Skn.DB.ProxyList.update_failed(y1)
           acc
