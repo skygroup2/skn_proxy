@@ -182,12 +182,12 @@ defmodule S5Proxy do
           catch
             _, {:change_ip, exp} ->
               Logger.debug("proxy #{inspect(ip)} blocked by #{inspect(exp)}")
-              Luminati.Keeper.update(ip, :banned)
+              Proxy.Keeper.update(ip, :banned)
               {:error, proxy}
 
             _, exp ->
               Logger.debug("proxy #{inspect(ip)} blocked by #{inspect(exp)}")
-              Luminati.Keeper.update(ip, :banned)
+              Proxy.Keeper.update(ip, :banned)
               {:error, proxy}
           end
         end)

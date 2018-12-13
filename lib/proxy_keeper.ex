@@ -1,4 +1,4 @@
-defmodule Luminati.Keeper do
+defmodule Proxy.Keeper do
   @moduledoc """
       count ip address and reused rate
   """
@@ -132,7 +132,7 @@ defmodule Luminati.Keeper do
   end
 
   def my_rk(id) do
-    ixx = rem(id, Luminati.Keeper.size())
+    ixx = rem(id, Proxy.Keeper.size())
     "LUM.KEEPER.#{ixx}"
   end
 
@@ -489,15 +489,13 @@ defmodule Luminati.Keeper do
   end
 end
 
-defmodule Luminati.LocalKeeper do
+defmodule Proxy.LocalKeeper do
   use GenServer
   require Logger
 
-  import Skn.Util,
-    only: [
-      reset_timer: 3
-    ]
-
+  import Skn.Util, only: [
+    reset_timer: 3
+  ]
   @name :proxy_local_keeper
 
   defp demonitor(ref) do
@@ -544,7 +542,7 @@ defmodule Luminati.LocalKeeper do
       Enum.reduce(ql, {pend, tid}, fn {_id, ips}, {p, t} ->
         if is_list(ips) and length(ips) > 0 do
           t1 = if t >= 65535, do: 0, else: t + 1
-          Luminati.Keeper.release(self(), t1, ips)
+          Proxy.Keeper.release(self(), t1, ips)
           p1 = Map.put(p, t1, ips)
           {p1, t1}
         else
@@ -578,7 +576,7 @@ defmodule Luminati.LocalKeeper do
   end
 
   def handle_info({:unpin_ip, _from, ip}, %{queue: q} = state) do
-    id = rem(:erlang.phash2(ip), Luminati.Keeper.size())
+    id = rem(:erlang.phash2(ip), Proxy.Keeper.size())
     ips = Map.get(q, id, [])
     q1 = Map.put(q, id, :sets.to_list(:sets.from_list([ip | ips])))
     {:noreply, %{state | queue: q1}}
@@ -611,7 +609,7 @@ defmodule Luminati.LocalKeeper do
   end
 end
 
-defmodule Luminati.LocalKeeperAck do
+defmodule Proxy.LocalKeeperAck do
   use GenServer
   require Logger
   @name :proxy_local_keeper_ack
