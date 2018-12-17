@@ -17,7 +17,7 @@ defmodule Skn.DB.ProxyIP2 do
   banned:
 
   total_account:
-  total_week:
+  total_task:
   total_built:
   total_updated:
   total_pinned:
@@ -38,7 +38,7 @@ defmodule Skn.DB.ProxyIP2 do
             account: 0,
             week: 0,
             total_account: 0,
-            total_week: 0,
+            total_task: 0,
             nnode: nil,
             pid: nil,
             geo: geo,
@@ -75,7 +75,7 @@ defmodule Skn.DB.ProxyIP2 do
             account: 0,
             week: 0,
             total_account: 0,
-            total_week: 0,
+            total_task: 0,
             nnode: nil,
             pid: nil,
             geo: nil,
@@ -130,10 +130,10 @@ defmodule Skn.DB.ProxyIP2 do
         else
           {ts_now, [ts_now | v1[:info][:total_pinned]]}
         end
-        {week, total_week} = if incr == 0 or incr == :keep do
-          {v1[:info][:week], v1[:info][:total_week]}
+        {week, total_task} = if incr == 0 or incr == :keep do
+          {v1[:info][:week], v1[:info][:total_task]}
         else
-          {v1[:info][:week] + 1, v1[:info][:total_week] + 1}
+          {v1[:info][:week] + 1, v1[:info][:total_task] + 1}
         end
         {updated, total_updated} = if incr == 0 or incr == :keep do
           {v1[:info][:updated], v1[:info][:total_updated]}
@@ -142,17 +142,17 @@ defmodule Skn.DB.ProxyIP2 do
         end
         total_pinned = Enum.slice(total_pinned, 0, 5)
         total_updated = Enum.slice(total_updated, 0, 5)
-        info1 = Map.merge v1[:info],
-                          %{
-                            week: week,
-                            total_week: total_week,
-                            pid: pid,
-                            nnode: nnode,
-                            updated: updated,
-                            total_updated: total_updated,
-                            pinned: pinned,
-                            total_pinned: total_pinned
-                          }
+        info1 = Map.merge(v1[:info],
+          %{
+            week: week,
+            total_task: total_task,
+            pid: pid,
+            nnode: nnode,
+            updated: updated,
+            total_updated: total_updated,
+            pinned: pinned,
+            total_pinned: total_pinned
+          })
         if info1 != v1[:info] do
           write(ip, keeper, info1)
         end
