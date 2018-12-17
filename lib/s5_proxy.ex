@@ -68,16 +68,10 @@ defmodule S5Proxy do
   def handle_info({:update, ips}, %{checker: handle} = state) do
     Logger.debug("update #{length(ips)} s5 proxy")
     ips = Enum.chunk_every(ips, 50)
-    new = Enum.reduce(ips, 0, fn x, acc ->
+    Enum.reduce(ips, 0, fn x, acc ->
       n = validate_static_proxy(handle, x)
       acc + n
     end)
-    if new > Skn.Config.get(:update_static_new, 100) do
-      ProxyGroup.update_static()
-      if Skn.Config.get(:sync_static, false) == true do
-        Skn.DB.ProxyList.sync_static()
-      end
-    end
     {:noreply, state}
   end
 
@@ -182,12 +176,10 @@ defmodule S5Proxy do
           catch
             _, {:change_ip, exp} ->
               Logger.debug("proxy #{inspect(ip)} blocked by #{inspect(exp)}")
-              Proxy.Keeper.update(ip, :banned)
               {:error, proxy}
 
             _, exp ->
               Logger.debug("proxy #{inspect(ip)} blocked by #{inspect(exp)}")
-              Proxy.Keeper.update(ip, :banned)
               {:error, proxy}
           end
         end)

@@ -72,8 +72,6 @@ defmodule Luminati.Super do
     old = Skn.Config.get(:proxy_super_update, 1200_000)
 
     if diff >= old do
-      ProxyGroup.update_all()
-      # sync to node
       try do
         cnodes = :erlang.nodes()
         nodes = Skn.Config.get(:slaves, [])
