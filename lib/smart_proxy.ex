@@ -16,7 +16,8 @@ defmodule SmartProxy do
       opts = [{:linger, {false, 0}}, {:reuseaddr, true}, {:insecure, true}, {:pool, false}, {:recv_timeout, 35000}, {:connect_timeout, 15000}, {:ssl_options, [{:versions, [:'tlsv1.2']}, {:reuse_sessions, false}]}]
       headers = %{"Connection" => "close", "Accept-Encoding" => "gzip"}
       {:ok, x} = HTTPoison.get(url, headers, [hackney: opts])
-      String.split(HackneyEx.decode_gzip(x), "\n", trim: true)
+      String.split(HackneyEx.decode_gzip(x), ["\r\n", "\n"])
+      |> Enum.map(fn x -> String.trim(x) end)
     catch
       _,_ ->
         []
