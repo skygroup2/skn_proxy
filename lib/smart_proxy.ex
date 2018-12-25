@@ -16,7 +16,7 @@ defmodule SmartProxy do
       opts = [{:linger, {false, 0}}, {:reuseaddr, true}, {:insecure, true}, {:pool, false}, {:recv_timeout, 35000}, {:connect_timeout, 15000}, {:ssl_options, [{:versions, [:'tlsv1.2']}, {:reuse_sessions, false}]}]
       headers = %{"Connection" => "close", "Accept-Encoding" => "gzip"}
       {:ok, x} = HTTPoison.get(url, headers, [hackney: opts])
-      :binary.split(HackneyEx.decode_gzip(x), "\r\n", [:global])
+      String.split(HackneyEx.decode_gzip(x), "\n", trim: true)
     catch
       _,_ ->
         []
