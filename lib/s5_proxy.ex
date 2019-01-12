@@ -67,7 +67,8 @@ defmodule S5Proxy do
 
   def handle_info({:update, ips}, %{checker: handle} = state) do
     Logger.debug("update #{length(ips)} s5 proxy")
-    ips = Enum.chunk_every(ips, 50)
+    proxy_chunk_size = Skn.Config.get(:proxy_chunk_size, 100)
+    ips = Enum.chunk_every(ips, proxy_chunk_size)
     Enum.reduce(ips, 0, fn x, acc ->
       n = validate_static_proxy(handle, x)
       acc + n
