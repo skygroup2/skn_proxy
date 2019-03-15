@@ -5,10 +5,10 @@ defmodule GeoIP do
   use GenServer
   require Logger
   alias Skn.Proxy.SqlApi
-  import HackneyEx,
+  import GunEx,
     only: [
       decode_gzip: 1,
-      send_rest: 7
+      http_request: 6
     ]
 
   import Skn.Util,
@@ -17,13 +17,6 @@ defmodule GeoIP do
     ]
 
   @name :proxy_geo
-  @proxy_opts [
-    {:linger, {false, 0}},
-    {:insecure, true},
-    {:pool, false},
-    {:recv_timeout, 30000},
-    {:connect_timeout, 30000}
-  ]
 
   def update({_requester, _ip, _keeper}, _is_static) do
     #        flag = case SqlApi.get_GeoIP(ip) do
@@ -133,15 +126,15 @@ defmodule GeoIP do
     url = "http://lumtest.com/myip.json"
 
     headers = %{
-      "Accept-Encoding" => "gzip",
-      "Connection" => "close"
+      "accept-encoding" => "gzip",
+      "connection" => "close"
     }
 
     try do
-      proxy_opts = add_proxy_option(proxy, proxy_auth, @proxy_opts)
+      proxy_opts = add_proxy_option(proxy, proxy_auth, default_proxy_option())
 
-      case send_rest(:get, url, "", headers, [{:hackney, proxy_opts}], 0, 0) do
-        {:ok, response} ->
+      case http_request("GET", url, "", headers, proxy_opts, nil) do
+        response when is_map(response) ->
           if response.status_code == 200 do
             r = Jason.decode!(decode_gzip(response))
             normalize_geo(:luminati, r)
@@ -162,18 +155,17 @@ defmodule GeoIP do
   end
 
   def query_by_ip(ip) do
-    url = "http://freegeoip.net/json/#{ip}"
+    url = "http://lumtest.com/myip.json"
 
     headers = %{
-      "Accept-Encoding" => "gzip",
-      "Connection" => "close"
+      "x-forwarded-for" => ip,
+      "accept-encoding" => "gzip",
+      "connection" => "close"
     }
 
     try do
-      proxy_opts = @proxy_opts ++ get_if()
-
-      case send_rest(:get, url, "", headers, [{:hackney, proxy_opts}], 0, 2) do
-        {:ok, response} ->
+      case http_request("GET", url, "", headers, default_proxy_option(), nil) do
+        response when is_map(response) ->
           if response.status_code == 200 do
             r = Jason.decode!(decode_gzip(response))
             normalize_geo(:freegeoip, r)
@@ -357,40 +349,23 @@ defmodule GeoIP do
     :ok
   end
 
-  defp get_if() do
-    i = Skn.Counter.update_counter(:if_seq, 1)
-    ips = Skn.Config.get(:ips, [])
-
-    if ips == [] do
-      []
-    else
-      ix = rem(i, length(ips))
-      [{:connect_options, [{:ip, Enum.at(ips, ix)}]}]
+  defp add_proxy_option(proxy, proxy_auth, opts) do
+    case proxy do
+      nil ->
+        opts
+      _ ->
+        Map.merge(opts, %{proxy: proxy, proxy_auth: proxy_auth})
     end
   end
 
-  defp add_proxy_option(proxy, proxy_auth, opts) do
-    proxy_opts =
-      case proxy do
-        nil ->
-          []
-        {:socks5, _, _} ->
-          case proxy_auth do
-            {user, pass} ->
-              [{:proxy, proxy}, {:socks5_user, user}, {:socks5_pass, pass}]
-
-            _ ->
-              [{:proxy, proxy}]
-          end
-        proxy ->
-          case proxy_auth do
-            nil -> [{:proxy, proxy}]
-            auth -> [{:proxy, proxy}, {:proxy_auth, auth}]
-          end
-      end
-
-    proxy_opts = proxy_opts ++ get_if()
-    proxy_opts ++ opts
+  defp default_proxy_option() do
+    %{
+      recv_timeout: 25000,
+      connect_timeout: 35000,
+      retry: 0,
+      retry_timeout: 5000,
+      transport_opts: [{:reuseaddr, true}, {:reuse_sessions, false}, {:linger, {false, 0}}, {:versions, [:"tlsv1.2"]}]
+    }
   end
 
   defp print_proxy(proxy) do

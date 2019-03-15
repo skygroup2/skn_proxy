@@ -13,10 +13,16 @@ defmodule SmartProxy do
 
   def http_get_proxy_list(url) do
     try do
-      opts = [{:linger, {false, 0}}, {:reuseaddr, true}, {:insecure, true}, {:pool, false}, {:recv_timeout, 35000}, {:connect_timeout, 15000}, {:ssl_options, [{:versions, [:'tlsv1.2']}, {:reuse_sessions, false}]}]
-      headers = %{"Connection" => "close", "Accept-Encoding" => "gzip"}
-      {:ok, x} = HTTPoison.get(url, headers, [hackney: opts])
-      String.split(HackneyEx.decode_gzip(x), ["\r\n", "\n"])
+      opts = %{
+        recv_timeout: 25000,
+        connect_timeout: 35000,
+        retry: 0,
+        retry_timeout: 5000,
+        transport_opts: [{:reuseaddr, true}, {:reuse_sessions, false}, {:linger, {false, 0}}, {:versions, [:"tlsv1.2"]}]
+      }
+      headers = %{"connection" => "close", "accept-encoding" => "gzip"}
+      x = GunEx.http_request("GET", url, "", headers, opts, nil)
+      String.split(GunEx.decode_gzip(x), ["\r\n", "\n"])
       |> Enum.map(fn x -> String.trim(x) end)
     catch
       _,_ ->

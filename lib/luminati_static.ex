@@ -5,12 +5,6 @@ defmodule Luminati.Static do
   use GenServer
   require Logger
 
-  import HackneyEx,
-    only: [
-      decode_gzip: 1,
-      send_rest: 5
-    ]
-
   import Skn.Util,
     only: [
       check_ipv4: 1,
@@ -18,35 +12,37 @@ defmodule Luminati.Static do
     ]
 
   @name :proxy_static
-  @proxy_opts [
-    {:linger, {false, 0}},
-    {:insecure, true},
-    {:pool, false},
-    {:recv_timeout, 30000},
-    {:connect_timeout, 30000}
-  ]
 
   def start_link() do
     GenServer.start_link(__MODULE__, [], name: @name)
   end
 
+  defp default_proxy_option() do
+    %{
+      recv_timeout: 25000,
+      connect_timeout: 35000,
+      retry: 0,
+      retry_timeout: 5000,
+      transport_opts: [{:reuseaddr, true}, {:reuse_sessions, false}, {:linger, {false, 0}}, {:versions, [:"tlsv1.2"]}]
+    }
+  end
+
   def refresh_ip(email, password, account, zone, ips) do
     url = "https://luminati.io/api/refresh"
-    proxy_opts = [{:hackney, @proxy_opts}]
-
+    proxy_opts = default_proxy_option()
     headers = %{
-      "Connection" => "close",
-      "Content-Type" => "application/json"
+      "connection" => "close",
+      "content-Type" => "application/json"
     }
 
     body =
       Jason.encode!(%{email: email, password: password, customer: account, zone: zone, ips: ips})
 
-    ret = HTTPoison.request(:post, url, body, headers, proxy_opts)
+    ret = GunEx.http_request("POST", url, body, headers, proxy_opts, nil)
 
     case ret do
-      {:ok, response} ->
-        ips = :binary.split(decode_gzip(response), "\n", [:global])
+      %{status_code: 200} = response ->
+        ips = :binary.split(GunEx.decode_gzip(response), "\n", [:global])
 
         Enum.filter(ips, fn x ->
           case check_ipv4(x) do
@@ -79,12 +75,11 @@ defmodule Luminati.Static do
     }
 
     try do
-      proxy_opts = @proxy_opts
 
-      case send_rest(:get, url, "", headers, [{:hackney, proxy_opts}]) do
-        {:ok, response} ->
+      case GunEx.http_request("GET", url, "", headers, default_proxy_option(), nil) do
+        response when is_map(response) ->
           if response.status_code == 200 do
-            ips = :binary.split(decode_gzip(response), "\n", [:global])
+            ips = :binary.split(GunEx.decode_gzip(response), "\n", [:global])
 
             Enum.filter(ips, fn x ->
               case check_ipv4(x) do

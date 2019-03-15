@@ -10,11 +10,6 @@ defmodule Luminati.Super do
       reset_timer: 3
     ]
 
-  import HackneyEx,
-    only: [
-      decode_gzip: 1
-    ]
-
   def start_link(args) do
     GenServer.start_link(__MODULE__, args, name: @name)
   end
@@ -137,20 +132,19 @@ defmodule Luminati.Super do
   end
 
   def ping(ip) do
-    opts = [
-      {:linger, {false, 0}},
-      {:insecure, true},
-      {:pool, false},
-      {:connect_timeout, 30000},
-      {:recv_timeout, 90000},
-      {:ssl_options, [{:versions, [:"tlsv1.2"]}, {:reuse_sessions, false}]}
-    ]
+    opts = %{
+      recv_timeout: 25000,
+      connect_timeout: 35000,
+      retry: 0,
+      retry_timeout: 5000,
+      transport_opts: [{:reuseaddr, true}, {:reuse_sessions, false}, {:linger, {false, 0}}, {:versions, [:"tlsv1.2"]}]
+    }
 
     try do
-      case HTTPoison.request(:get, "http://#{ip}:22225/ping", "", [], [{:hackney, opts}]) do
+      case GunEx.http_request("GET", "http://#{ip}:22225/ping", "", %{"connection" => "close"}, opts, nil) do
         {:ok, ret} ->
           if ret.status_code == 200 do
-            x = Jason.decode!(decode_gzip(ret))
+            x = Jason.decode!(GunEx.decode_gzip(ret))
             svc = Map.get(x, "svc", %{})
             Map.get(svc, "has_internet", 0) == 1
           else
