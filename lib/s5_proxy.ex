@@ -104,7 +104,7 @@ defmodule S5Proxy do
         ip: ip,
         tag: i_tag,
         assign: format_ssh_ip_assign(ssh_ip, ssh_port),
-        info: %{updated: ts_now, geo: %{"country_code" => "cn", "ip" => ip}},
+        info: %{updated: ts_now, geo: %{"country" => "cn", "ip" => ip}},
         incr: 0
       }
 

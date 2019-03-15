@@ -38,7 +38,7 @@ defmodule Luminati.Static do
     body =
       Jason.encode!(%{email: email, password: password, customer: account, zone: zone, ips: ips})
 
-    ret = GunEx.http_request("POST", url, body, headers, proxy_opts, nil)
+    ret = GunEx.http_request("POST", url, headers, body,  proxy_opts, nil)
 
     case ret do
       %{status_code: 200} = response ->
@@ -76,7 +76,7 @@ defmodule Luminati.Static do
 
     try do
 
-      case GunEx.http_request("GET", url, "", headers, default_proxy_option(), nil) do
+      case GunEx.http_request("GET", url, headers, "", default_proxy_option(), nil) do
         response when is_map(response) ->
           if response.status_code == 200 do
             ips = :binary.split(GunEx.decode_gzip(response), "\n", [:global])

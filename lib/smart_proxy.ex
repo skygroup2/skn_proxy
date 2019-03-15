@@ -21,7 +21,7 @@ defmodule SmartProxy do
         transport_opts: [{:reuseaddr, true}, {:reuse_sessions, false}, {:linger, {false, 0}}, {:versions, [:"tlsv1.2"]}]
       }
       headers = %{"connection" => "close", "accept-encoding" => "gzip"}
-      x = GunEx.http_request("GET", url, "", headers, opts, nil)
+      x = GunEx.http_request("GET", url, headers, "", opts, nil)
       String.split(GunEx.decode_gzip(x), ["\r\n", "\n"])
       |> Enum.map(fn x -> String.trim(x) end)
     catch

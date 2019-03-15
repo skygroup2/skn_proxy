@@ -68,7 +68,7 @@ defmodule ProxyOther do
   end
 
   def grab_proxy_hulk(username, _password, proxy_ip) do
-    x = GunEx.http_request("GET", "https://www.proxyhulk.com/list/getmylist.php?type=socks&user=#{username}", "", %{}, %{}, nil)
+    x = GunEx.http_request("GET", "https://www.proxyhulk.com/list/getmylist.php?type=socks&user=#{username}", %{}, "", %{}, nil)
     <<239, 187, 191, body :: binary>> = x.body
     res = String.replace(body, "<br />", "")
     res2 = String.split(res, "\n")
@@ -96,7 +96,7 @@ defmodule ProxyOther do
   end
 
   def grab_fine_proxy(username, password, proxy_ip) do
-    x = GunEx.http_request("GET", "http://account.fineproxy.org/api/getproxy/?format=txt&type=socksip&login=#{username}&password=#{password}", "", %{}, %{}, nil)
+    x = GunEx.http_request("GET", "http://account.fineproxy.org/api/getproxy/?format=txt&type=socksip&login=#{username}&password=#{password}", %{}, "", %{}, nil)
     res2 = :binary.split x.body, "\r\n", [:global]
     res3 = Enum.map res2, fn (x) ->
       case String.split(x, ":") do

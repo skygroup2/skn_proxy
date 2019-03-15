@@ -18,18 +18,17 @@ defmodule GeoIP do
 
   @name :proxy_geo
 
-  def update({_requester, _ip, _keeper}, _is_static) do
-    #        flag = case SqlApi.get_GeoIP(ip) do
-    #        %{geo: %{"country_code" => cc, "ip" => xip}} ->
-    #            send requester, {:update_geo, ip, keeper, %{"country_code" => cc, "ip" => xip}, is_static}
-    #            true
-    #        _ ->
-    #           false
-    #        end
-    #        if flag == false do
-    #            GenServer.cast(@name, {:queue, {requester, ip, keeper}, is_static})
-    #        end
-    :ignore
+  def update({requester, ip, keeper}, is_static) do
+    flag = case SqlApi.get_GeoIP(ip) do
+    %{geo: %{"country" => cc, "ip" => xip}} ->
+        send requester, {:update_geo, ip, keeper, %{"country" => String.downcase(cc), "ip" => xip}, is_static}
+        true
+    _ ->
+       false
+    end
+    if flag == false do
+        GenServer.cast(@name, {:queue, {requester, ip, keeper}, is_static})
+    end
   end
 
   def update(p, is_static) when is_map(p) do
@@ -38,11 +37,11 @@ defmodule GeoIP do
     if is_static == true or is_static == :unstable do
       flag =
         case SqlApi.get_GeoIP(ip) do
-          %{geo: %{"country_code" => cc, "ip" => xip}} ->
+          %{geo: %{"country" => cc, "ip" => xip}} ->
             p_attrs =
               Map.merge(normalize_hog(p), %{
                 real_ip: xip,
-                country: cc,
+                country: String.downcase(cc),
                 status: SqlApi.proxy_status_geo()
               })
 
@@ -65,34 +64,12 @@ defmodule GeoIP do
     :ignore
   end
 
-  def normalize_geo(:freegeoip, resp) do
-    x = Map.drop(resp, ["__deprecation_message__", "region_name", "metro_code", "country_name"])
-
-    Map.merge(x, %{
-      "country_code" => String.downcase(resp["country_code"]),
-      "region_code" => String.downcase(resp["region_code"]),
-      "asn" => %{}
-    })
-  end
-
-  def normalize_geo(:luminati, resp) do
-    x = Map.drop(resp, ["geo", "country"])
-    geo = Map.get(resp, "geo", %{})
-    gx = Map.drop(geo, ["tz", "region", "postal_code"])
-
-    gxx =
-      Map.merge(gx, %{
-        "time_zone" => geo["tz"],
-        "zip_code" => geo["postal_code"],
-        "region_code" => String.downcase(geo["region"])
-      })
-
-    xx = Map.merge(x, %{"country_code" => String.downcase(resp["country"])})
-    Map.merge(xx, gxx)
+  def normalize_geo(resp) do
+    resp
   end
 
   def compress_geo(geo) do
-    %{"country_code" => geo["country_code"], "ip" => geo["ip"]}
+    %{"country" => String.downcase(geo["country"]), "ip" => geo["ip"]}
   end
 
   def normalize_hog(x) do
@@ -133,16 +110,23 @@ defmodule GeoIP do
     try do
       proxy_opts = add_proxy_option(proxy, proxy_auth, default_proxy_option())
 
-      case http_request("GET", url, "", headers, proxy_opts, nil) do
+      case http_request("GET", url, headers, "", proxy_opts, nil) do
         response when is_map(response) ->
           if response.status_code == 200 do
             r = Jason.decode!(decode_gzip(response))
-            normalize_geo(:luminati, r)
+            normalize_geo(r)
           else
             Logger.error("GeoIP #{inspect print_proxy(proxy)} => #{inspect response.status_code}")
             {:error, response.status_code}
           end
 
+        {:error, reason} when reason in [:timeout, :connect_timeout, :proxy_error, :econnrefused, :ehostunreach] ->
+          case proxy do
+            {:socks5, h, _p} ->
+              query_by_ip(:inet.ntoa(h))
+            _ ->
+              {:error, reason}
+          end
         exp ->
           Logger.error("GeoIP #{inspect print_proxy(proxy)} => #{inspect exp}")
           {:error, exp}
@@ -164,11 +148,11 @@ defmodule GeoIP do
     }
 
     try do
-      case http_request("GET", url, "", headers, default_proxy_option(), nil) do
+      case http_request("GET", url, headers, "", default_proxy_option(), nil) do
         response when is_map(response) ->
           if response.status_code == 200 do
             r = Jason.decode!(decode_gzip(response))
-            normalize_geo(:freegeoip, r)
+            normalize_geo(r)
           else
             {:error, response.status_code}
           end
@@ -226,11 +210,11 @@ defmodule GeoIP do
           %{id: proxy_id} ->
             flag =
               case SqlApi.get_GeoIP(x[:ip]) do
-                %{geo: %{"country_code" => cc, "ip" => xip}} ->
+                %{geo: %{"country" => cc, "ip" => xip}} ->
                   p_attrs =
                     Map.merge(normalize_hog(x), %{
                       real_ip: xip,
-                      country: cc,
+                      country: String.downcase(cc),
                       status: SqlApi.proxy_status_geo()
                     })
 
@@ -253,14 +237,14 @@ defmodule GeoIP do
               if is_map(geo) do
                 SqlApi.update_GeoIP(%{
                   address: geo["ip"],
-                  country: geo["country_code"],
+                  country: String.downcase(geo["country"]),
                   geo: geo
                 })
 
                 p_attrs =
                   Map.merge(normalize_hog(x), %{
                     real_ip: geo["ip"],
-                    country: geo["country_code"],
+                    country: String.downcase(geo["country"]),
                     status: SqlApi.proxy_status_geo()
                   })
 
@@ -286,10 +270,10 @@ defmodule GeoIP do
             # Luminati keeper
             flag =
               case SqlApi.get_GeoIP(ip) do
-                %{geo: %{"country_code" => cc, "ip" => xip}} ->
+                %{geo: %{"country" => cc, "ip" => xip}} ->
                   send(
                     requester,
-                    {:update_geo, ip, keeper, %{"country_code" => cc, "ip" => xip}, false}
+                    {:update_geo, ip, keeper, %{"country" => String.downcase(cc), "ip" => xip}, false}
                   )
 
                   true
@@ -305,7 +289,7 @@ defmodule GeoIP do
               if is_map(geo) do
                 SqlApi.update_GeoIP(%{
                   address: geo["ip"],
-                  country: geo["country_code"],
+                  country: String.downcase(geo["country"]),
                   geo: geo
                 })
 

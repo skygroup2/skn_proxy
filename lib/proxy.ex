@@ -154,7 +154,7 @@ defmodule Skn.Proxy do
     ips =
       Enum.reduce(ipk, %{}, fn ip, acc ->
         case Skn.DB.ProxyIP2.read(ip) do
-          %{info: %{status: status, geo: %{"country_code" => cc}}} when byte_size(cc) == 2 ->
+          %{info: %{status: status, geo: %{"country" => cc}}} when byte_size(cc) == 2 ->
             if status == :ok do
               cc = String.downcase(cc)
               cn = Map.get(acc, cc, 0) + 1

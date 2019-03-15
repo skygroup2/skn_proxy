@@ -141,7 +141,7 @@ defmodule Luminati.Super do
     }
 
     try do
-      case GunEx.http_request("GET", "http://#{ip}:22225/ping", "", %{"connection" => "close"}, opts, nil) do
+      case GunEx.http_request("GET", "http://#{ip}:22225/ping", %{"connection" => "close"}, "", opts, nil) do
         {:ok, ret} ->
           if ret.status_code == 200 do
             x = Jason.decode!(GunEx.decode_gzip(ret))

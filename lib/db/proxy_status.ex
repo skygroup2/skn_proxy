@@ -219,12 +219,12 @@ defmodule Skn.DB.ProxyList do
   def ensure_geo(%{ip: ip, info: info} = p) do
     case info do
       %{geo: geo} when is_map(geo) ->
-        geo["country_code"]
+        geo["country"]
       %{failed: 0} ->
         case Skn.Proxy.SqlApi.get_GeoIP(ip) do
         %{geo: geo} when is_map(geo) ->
             update_geo(ip, GeoIP.compress_geo(geo))
-            geo["country_code"]
+            geo["country"]
         _ ->
             GeoIP.update(p, true)
             nil
@@ -245,7 +245,7 @@ defmodule Skn.DB.ProxyList do
         _ when cc == nil ->
           [%{id: id, ip: ip, info: info, tag: tag, assign: assign} | acc]
         %{geo: geo} when is_map(geo) and failed == 0 ->
-          if String.downcase(geo["country_code"]) == cc do
+          if String.downcase(geo["country"]) == cc do
             [%{id: id, ip: ip, info: info, tag: tag, assign: assign} | acc]
           else
             acc
