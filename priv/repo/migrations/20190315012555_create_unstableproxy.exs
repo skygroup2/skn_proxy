@@ -15,12 +15,12 @@ defmodule Skn.EA.Repo.Migrations.FreeProxy do
       info :map,       :integer, default: %{}
       timestamps()
     end
-    create index("skn_unstableproxy", [:address, :port], name: :proxy_uri_idx, unique: true)
+    create index("skn_unstableproxy", [:address, :port], unique: true)
   end
 
   def down do
     IO.puts("Dropping table skn_unstableproxy")
     drop_if_exists table(:skn_unstableproxy)
-    drop index("skn_unstableproxy", [:address, :port], name: :proxy_uri_idx)
+    drop index("skn_unstableproxy", [:address, :port])
   end
 end
