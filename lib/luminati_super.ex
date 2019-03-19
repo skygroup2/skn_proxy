@@ -96,9 +96,8 @@ defmodule Luminati.Super do
     end
 
     Enum.reduce(proxies, 0, fn x, acc ->
-      tag = :super
       proxy = "http://#{x}:22225"
-      proxy_auth = {:sessioner, "lum-customer-#{user}-zone-#{zone}", password}
+      proxy_auth = {:lum, user, password, zone}
 
       incr =
         case ping(x) do
@@ -106,7 +105,7 @@ defmodule Luminati.Super do
           false -> 1
         end
 
-      Skn.DB.ProxyList.update_failed(%{id: {proxy, proxy_auth}, ip: x, incr: incr, tag: tag})
+      Skn.DB.ProxyList.update_failed(%{id: {proxy, proxy_auth}, ip: x, incr: incr, tag: :super})
       acc + 1
     end)
 
