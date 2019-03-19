@@ -1,20 +1,19 @@
-defmodule Skn.Proxy.Sup do
-  def start_proxy_hook() do
-    http_port = Skn.Config.get(:web_proxy_port, nil)
-    if is_integer(http_port) and http_port > 1024 and http_port < 65535 do
-      dispatch = :cowboy_router.compile([{:_, [{:_, Skn.Proxy.RestApi, []}]}])
-      :cowboy.start_clear(:http, [{:port, http_port}], %{env: %{dispatch: dispatch}})
-    else
-      {:ok, :ignore}
-    end
-  end
-end
-
 defmodule Skn.Proxy do
+  use Application
+  require Logger
+
+  def start(_type, _args) do
+    ret = Skn.Proxy.Sup.start_link()
+    ret
+  end
+
+  def stop(state) do
+    Logger.info("Proxy is terminated by #{inspect(state)}")
+    :mnesia.sync_log()
+  end
+
   @country_list [:ae , :af , :ag , :ai , :al , :am , :an , :ao , :aq , :ar , :as , :at , :au , :aw , :ax , :az , :ba , :bb , :bd , :be , :bf , :bg , :bh , :bi , :bj , :bl , :bm , :bn , :bo , :br , :bs , :bt , :bv , :bw , :by , :bz , :ca , :cc , :cd , :cf , :cg , :ch , :ci , :ck , :cl , :cm , :cn , :co , :cr , :cu , :cv , :cx , :cy , :cz , :de , :dj , :dk , :dm , :do , :dz , :ec , :ee , :eg , :eh , :er , :es , :et , :fi , :fj , :fk , :fm , :fo , :fr , :ga , :gb , :gd , :ge , :gf , :gg , :gh , :gi , :gl , :gm , :gn , :gp , :gq , :gr , :gs , :gt , :gu , :gw , :gy , :hk , :hm , :hn , :hr , :ht , :hu , :id , :ie , :il , :im , :in , :io , :iq , :ir , :is , :it , :je , :jm , :jo , :jp , :ke , :kg , :kh , :ki , :km , :kn , :kp , :kr , :kw , :ky , :kz , :la , :lb , :lc , :li , :lk , :lr , :ls , :lt , :lu , :lv , :ly , :ma , :mc , :md , :me , :mf , :mg , :mh , :mk , :ml , :mm , :mn , :mo , :mp , :mq , :mr , :ms , :mt , :mu , :mv , :mw , :mx , :my , :mz , :na , :nc , :ne , :nf , :ng , :ni , :nl , :no , :np , :nr , :nu , :nz , :om , :pa , :pe , :pf , :pg , :ph , :pk , :pl , :pm , :pn , :pr , :ps , :pt , :pw , :py , :qa , :re , :ro , :rs , :ru , :rw , :sa , :sb , :sc , :sd , :se , :sg , :sh , :si , :sj , :sk , :sl , :sm , :sn , :so , :sr , :ss , :st , :sv , :sy , :sz , :tc , :td , :tf , :tg , :th , :tj , :tk , :tl , :tm , :tn , :to , :tr , :tt , :tv , :tw , :tz , :ua , :ug , :um , :us , :uy , :uz , :va , :vc , :ve , :vg , :vi , :vn , :vu , :wf , :ws , :ye , :yt , :za , :zm , :zw]
   @country_black_list ["ai" , "an" , "ao" , "aq" , "as" , "bl" , "bv" , "cc" , "cf" , "cg" , "ck" , "cu" , "cx" , "dj" , "eh" , "er" , "fk" , "gs" , "gw" , "hm" , "io" , "ki" , "km" , "kp" , "kr" , "kz" , "li" , "ls" , "mf" , "mh" , "ms" , "mw" , "nf" , "nr" , "nu" , "pn" , "pw" , "sb" , "sc" , "sh" , "sj" , "sl" , "sm" , "ss" , "td" , "tf" , "tk" , "tl" , "to" , "tv" , "um" , "va" , "vg" , "vu" , "wf" , "ye" , "xk" , "cn" , "ru" , "tw" , "hk" , "il" , "dz" , "eg" , "id" , "in" , "ir" , "ma" , "pk" , "ps" , "sy" , "th" , "uy" , "tn" , "sa" , "sn" , "bi" , "st" , "gn" , "pg" , "ws" , "ne" , "mp" , "sz" , "lc" , "fm" , "rw" , "bf" , "cd" , "tm" , "lr" , "mr" , "cm" , "et" , "yt" , "az" , "so" , "pm" , "tg" , "vn" , "my" , "ua" , "tr" , "ec" , "do" , "om" , "vi" , "sx" , "kh" , "dm" , "ag" , "bt" , "mc" , "af" , "cv" , "gq" , "bw" , "bd" , "ga" , "gm" , "ml"]
-
-
   def country_list() do
     @country_list
   end
