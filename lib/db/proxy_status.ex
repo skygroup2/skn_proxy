@@ -4,7 +4,7 @@ defmodule Skn.DB.ProxyList do
   require Logger
 
   def to_file(file, tag \\ nil) do
-    keys = :mnesia.dirty_all_keys(:proxy_blocked)
+    keys = :mnesia.dirty_all_keys(:proxy_status)
     data = Enum.map keys, fn x -> get(x) end
     data = if tag != nil do
       Enum.filter data, fn x -> x[:tag] == tag end
@@ -21,10 +21,10 @@ defmodule Skn.DB.ProxyList do
 
   def sync_super(dnode) do
     if node() == Skn.Config.get(:master) do
-      mh = {:proxy_blocked, :"$1", :"$2", :"$3", :_, :"$4"}
+      mh = {:proxy_status, :"$1", :"$2", :"$3", :_, :"$4"}
       mg = [{:==, :"$3", :super}]
       mr = {{:"$1", :"$2", :"$4"}}
-      ips = :mnesia.dirty_select(:proxy_blocked, [{mh, mg, [mr]}])
+      ips = :mnesia.dirty_select(:proxy_status, [{mh, mg, [mr]}])
       Enum.each ips, fn ({id, ip, info}) ->
         Command.Gate.async_dist_rpc(dnode, {:proxy_assign, %{id: id, ip: ip, tag: :super, info: info}})
       end
@@ -34,10 +34,10 @@ defmodule Skn.DB.ProxyList do
 
   def sync_static(dnode) do
     if (node() == Skn.Config.get(:master)) do
-      mh = {:proxy_blocked, :"$1", :"$2", :"$3", :"$4", :"$5"}
+      mh = {:proxy_status, :"$1", :"$2", :"$3", :"$4", :"$5"}
       mg = [{:==, :"$3", :static}]
       mr = {{:"$1", :"$2", :"$4", :"$5"}}
-      ips = :mnesia.dirty_select(:proxy_blocked, [{mh, mg, [mr]}])
+      ips = :mnesia.dirty_select(:proxy_status, [{mh, mg, [mr]}])
       Enum.each ips, fn {id, ip, assign, info} ->
         failed = Map.get(info, :failed, 0)
         if failed == 0 do
@@ -58,14 +58,14 @@ defmodule Skn.DB.ProxyList do
   end
 
   def get(id) do
-    case :mnesia.dirty_read(:proxy_blocked, id) do
+    case :mnesia.dirty_read(:proxy_status, id) do
       [c | _] ->
         %{
-          id: Skn.Proxy.Repo.proxy_blocked(c, :id),
-          ip: Skn.Proxy.Repo.proxy_blocked(c, :ip),
-          tag: Skn.Proxy.Repo.proxy_blocked(c, :tag),
-          info: Skn.Proxy.Repo.proxy_blocked(c, :info),
-          assign: Skn.Proxy.Repo.proxy_blocked(c, :assign)
+          id: Skn.Proxy.Repo.proxy_status(c, :id),
+          ip: Skn.Proxy.Repo.proxy_status(c, :ip),
+          tag: Skn.Proxy.Repo.proxy_status(c, :tag),
+          info: Skn.Proxy.Repo.proxy_status(c, :info),
+          assign: Skn.Proxy.Repo.proxy_status(c, :assign)
         }
       _ ->
         nil
@@ -73,14 +73,14 @@ defmodule Skn.DB.ProxyList do
   end
 
   def get_ip(ip) do
-    cx = :mnesia.dirty_match_object(:proxy_blocked, {:proxy_blocked, :_, ip, :_, :_, :_})
+    cx = :mnesia.dirty_match_object(:proxy_status, {:proxy_status, :_, ip, :_, :_, :_})
     Enum.map cx, fn c ->
       %{
-        id: Skn.Proxy.Repo.proxy_blocked(c, :id),
-        ip: Skn.Proxy.Repo.proxy_blocked(c, :ip),
-        tag: Skn.Proxy.Repo.proxy_blocked(c, :tag),
-        info: Skn.Proxy.Repo.proxy_blocked(c, :info),
-        assign: Skn.Proxy.Repo.proxy_blocked(c, :assign)
+        id: Skn.Proxy.Repo.proxy_status(c, :id),
+        ip: Skn.Proxy.Repo.proxy_status(c, :ip),
+        tag: Skn.Proxy.Repo.proxy_status(c, :tag),
+        info: Skn.Proxy.Repo.proxy_status(c, :info),
+        assign: Skn.Proxy.Repo.proxy_status(c, :assign)
       }
     end
   end
@@ -102,8 +102,8 @@ defmodule Skn.DB.ProxyList do
     assign = proxy[:assign]
     ts_now = :erlang.system_time(:millisecond)
     info = Map.get(proxy, :info, %{updated: ts_now})
-    obj = Skn.Proxy.Repo.proxy_blocked(id: id, ip: ip, tag: tag, info: info, assign: assign)
-    :mnesia.dirty_write(:proxy_blocked, obj)
+    obj = Skn.Proxy.Repo.proxy_status(id: id, ip: ip, tag: tag, info: info, assign: assign)
+    :mnesia.dirty_write(:proxy_status, obj)
   end
 
   def update(proxy) do
@@ -118,8 +118,8 @@ defmodule Skn.DB.ProxyList do
       _ ->
         Map.get(proxy, :info, %{})
     end
-    obj = Skn.Proxy.Repo.proxy_blocked(id: id, ip: ip, tag: tag, info: info, assign: assign)
-    :mnesia.dirty_write(:proxy_blocked, obj)
+    obj = Skn.Proxy.Repo.proxy_status(id: id, ip: ip, tag: tag, info: info, assign: assign)
+    :mnesia.dirty_write(:proxy_status, obj)
   end
 
   def update_failed(proxy) do
@@ -193,13 +193,13 @@ defmodule Skn.DB.ProxyList do
 
   def delete_by_assign(assign) do
     if assign != nil do
-      cx = :mnesia.dirty_match_object(:proxy_blocked, {:proxy_blocked, :_, :_, :_, assign, :_})
+      cx = :mnesia.dirty_match_object(:proxy_status, {:proxy_status, :_, :_, :_, assign, :_})
       Enum.each cx, fn c ->
-        id = Skn.Proxy.Repo.proxy_blocked(c, :id)
-        :mnesia.dirty_delete(:proxy_blocked, id)
+        id = Skn.Proxy.Repo.proxy_status(c, :id)
+        :mnesia.dirty_delete(:proxy_status, id)
       end
       Enum.reduce(cx, [], fn c, acc ->
-        id = Skn.Proxy.Repo.proxy_blocked(c, :id)
+        id = Skn.Proxy.Repo.proxy_status(c, :id)
         case id do
           {proxy, _} ->
             [proxy| acc]
@@ -213,7 +213,7 @@ defmodule Skn.DB.ProxyList do
   end
 
   def delete(id) do
-    :mnesia.dirty_delete(:proxy_blocked, id)
+    :mnesia.dirty_delete(:proxy_status, id)
   end
 
   def ensure_geo(%{ip: ip, info: info} = p) do
@@ -235,10 +235,10 @@ defmodule Skn.DB.ProxyList do
   end
 
   def list_tag_by_cc(tag, assign, cc) do
-    mh = {:proxy_blocked, :"$1", :"$2", :"$3", :"$4", :"$5"}
+    mh = {:proxy_status, :"$1", :"$2", :"$3", :"$4", :"$5"}
     mg = [{:andalso, {:==, :"$3", tag}, {:==, :"$4", assign}}]
     mr = {{:"$1", :"$2", :"$5"}}
-    ips = :mnesia.dirty_select(:proxy_blocked, [{mh, mg, [mr]}])
+    ips = :mnesia.dirty_select(:proxy_status, [{mh, mg, [mr]}])
     Enum.reduce ips, [], fn ({id, ip, info}, acc) ->
       failed = Map.get(info, :failed, 0)
       case info do
@@ -257,10 +257,10 @@ defmodule Skn.DB.ProxyList do
   end
 
   def list_tag_by_failed(tag \\ :static, failed \\ 0) do
-    mh = {:proxy_blocked, :"$1", :"$2", :"$3", :"$4", :"$5"}
+    mh = {:proxy_status, :"$1", :"$2", :"$3", :"$4", :"$5"}
     mg = [{:==, :"$3", tag}]
     mr = {{:"$1", :"$2", :"$4", :"$5"}}
-    ips = :mnesia.dirty_select(:proxy_blocked, [{mh, mg, [mr]}])
+    ips = :mnesia.dirty_select(:proxy_status, [{mh, mg, [mr]}])
     ips = Enum.map ips, fn {id, ip, assign, info} -> %{id: id, ip: ip, tag: tag, assign: assign, info: info} end
     Enum.filter ips, fn x ->
       Map.get(x[:info], :failed, 0) > failed
@@ -269,10 +269,10 @@ defmodule Skn.DB.ProxyList do
 
   def assign_fm(tag \\ :static) do
     if node() == Skn.Config.get(:master) do
-      mh = {:proxy_blocked, :"$1", :"$2", :"$3", :"$4", :"$5"}
+      mh = {:proxy_status, :"$1", :"$2", :"$3", :"$4", :"$5"}
       mg = [{:andalso, {:==, :"$3", tag}, {:==, :"$4", nil}}]
       mr = {{:"$1", :"$2", :"$5"}}
-      ips = :mnesia.dirty_select(:proxy_blocked, [{mh, mg, [mr]}])
+      ips = :mnesia.dirty_select(:proxy_status, [{mh, mg, [mr]}])
       ips = Enum.filter ips, fn {_, ip, info} ->
         failed = Map.get info, :failed, 0
         case Skn.DB.ProxyIP2.read(ip) do
@@ -301,7 +301,7 @@ defmodule Skn.DB.ProxyList do
 
   def assign_search(count, max_search \\ 25, is_socks \\ false) do
     if node() == Skn.Config.get(:master) do
-      mh = {:proxy_blocked, :"$1", :"$2", :"$3", :"$4", :"$5"}
+      mh = {:proxy_status, :"$1", :"$2", :"$3", :"$4", :"$5"}
       mg = [
         {
           :andalso,
@@ -310,7 +310,7 @@ defmodule Skn.DB.ProxyList do
         }
       ]
       mr = {{:"$1", :"$2", :"$4", :"$5"}}
-      ips = :mnesia.dirty_select(:proxy_blocked, [{mh, mg, [mr]}])
+      ips = :mnesia.dirty_select(:proxy_status, [{mh, mg, [mr]}])
       ips_ok = Enum.filter ips, fn {id, _, _, info} ->
         is_ok = Map.get(info, :failed, 1) == 0
         case id do
@@ -348,7 +348,7 @@ defmodule Skn.DB.ProxyList do
 
   def assign_ah(count, zone \\ ["s5"]) do
     if node() == Skn.Config.get(:master) do
-      mh = {:proxy_blocked, :"$1", :"$2", :"$3", :"$4", :"$5"}
+      mh = {:proxy_status, :"$1", :"$2", :"$3", :"$4", :"$5"}
       mg = [
         {
           :andalso,
@@ -357,7 +357,7 @@ defmodule Skn.DB.ProxyList do
         }
       ]
       mr = {{:"$1", :"$2", :"$5"}}
-      ips = :mnesia.dirty_select(:proxy_blocked, [{mh, mg, [mr]}])
+      ips = :mnesia.dirty_select(:proxy_status, [{mh, mg, [mr]}])
       {ah, avail, banned} = Enum.reduce ips, {[], [], []}, fn ({id, ip, info}, {m, a, b}) ->
         case Skn.DB.ProxyIP2.read(ip) do
           %{
@@ -412,10 +412,10 @@ defmodule Skn.DB.ProxyList do
   end
 
   def list_all_tag(tag) do
-    mh = {:proxy_blocked, :"$1", :"$2", :"$3", :"$4", :"$5"}
+    mh = {:proxy_status, :"$1", :"$2", :"$3", :"$4", :"$5"}
     mg = [{:==, :"$3", tag}]
     mr = {{:"$1", :"$2", :"$4", :"$5"}}
-    ips = :mnesia.dirty_select(:proxy_blocked, [{mh, mg, [mr]}])
+    ips = :mnesia.dirty_select(:proxy_status, [{mh, mg, [mr]}])
     Enum.map ips, fn {id, ip, assign, info} -> %{id: id, ip: ip, tag: tag, assign: assign, info: info} end
   end
 
@@ -431,7 +431,7 @@ defmodule Skn.DB.ProxyList do
   end
 
   def list_tag(tag, assign \\ nil, limit \\ 0) do
-    mh = {:proxy_blocked, :"$1", :"$2", :"$3", :"$4", :"$5"}
+    mh = {:proxy_status, :"$1", :"$2", :"$3", :"$4", :"$5"}
     mg = cond do
       tag == nil and assign == nil ->
         []
@@ -443,7 +443,7 @@ defmodule Skn.DB.ProxyList do
         [{:==, :"$4", assign}]
     end
     mr = {{:"$1", :"$2", :"$4", :"$5"}}
-    ips = :mnesia.dirty_select(:proxy_blocked, [{mh, mg, [mr]}])
+    ips = :mnesia.dirty_select(:proxy_status, [{mh, mg, [mr]}])
     Enum.reduce ips, [], fn ({id, ip, a, info}, acc) ->
       if is_map(info) and Map.get(info, :failed, 0) <= limit do
         [%{id: id, ip: ip, info: info, tag: tag, assign: a} | acc]

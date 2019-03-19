@@ -4,8 +4,8 @@ defmodule Skn.Proxy.Repo do
     adapter: Ecto.Adapters.Postgres
   require Record
 
-  @proxy_blocked_fields [id: :nil, ip: "", tag: :static, assign: :farmer, info: %{}]
-  Record.defrecord :proxy_blocked, @proxy_blocked_fields
+  @proxy_status_fields [id: :nil, ip: "", tag: :static, assign: :farmer, info: %{}]
+  Record.defrecord :proxy_status, @proxy_status_fields
 
   @proxy_ip2_fields [id: "", keeper: 0, info: %{}]
   Record.defrecord :proxy_ip2, @proxy_ip2_fields
@@ -19,8 +19,8 @@ defmodule Skn.Proxy.Repo do
 
   def create_table() do
     :mnesia.create_table(
-      :proxy_blocked,
-      [disc_copies: [node()], record_name: :proxy_blocked, index: [:ip], attributes: fields(@proxy_blocked_fields)]
+      :proxy_status,
+      [disc_copies: [node()], record_name: :proxy_status, index: [:ip], attributes: fields(@proxy_status_fields)]
     )
     :mnesia.create_table(
       :proxy_ip2,
