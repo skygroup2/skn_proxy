@@ -47,7 +47,7 @@ defmodule Skn.Proxy.Repo.GeoIP do
   alias Skn.Proxy.Repo.GeoIP
 
   @primary_key {:address, :string, []}
-  schema "hog_geoip" do
+  schema "skn_geoip" do
     field :country, :string
     field :geo, :map
 
@@ -66,7 +66,7 @@ defmodule Skn.Proxy.Repo.FreeProxy do
   import Ecto.Changeset
   alias Skn.Proxy.Repo.FreeProxy
 
-  schema "hog_unstableproxy" do
+  schema "skn_unstableproxy" do
     field :address, :string
     field :port, :integer
     field :real_ip, :string
