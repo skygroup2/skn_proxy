@@ -14,6 +14,7 @@ defmodule SknProxy.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
+      mod: {Skn.Proxy, []},
       extra_applications: [:logger]
     ]
   end
