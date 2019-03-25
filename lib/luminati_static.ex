@@ -129,7 +129,7 @@ defmodule Luminati.Static do
     count = if count > 15, do: 15, else: count
 
     proxy_static =
-      Skn.Config.get(:proxy_account_static, [{"federico", "static", "mfotk5mb17iq"}])
+      Skn.Config.get(:lum_proxy_account_static, [{"federico", "static", "mfotk5mb17iq"}])
 
     is_china = Skn.Config.get(:is_china, false)
 

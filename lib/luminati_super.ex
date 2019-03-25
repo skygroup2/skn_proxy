@@ -31,7 +31,7 @@ defmodule Luminati.Super do
   end
 
   def handle_info(:update_zone, state) do
-    {user, zone, password} = Skn.Config.get(:proxy_account)
+    {user, zone, password} = Skn.Config.get(:lum_proxy_account)
     {:noreply, %{state | user: user, zone: zone, password: password}}
   end
 
