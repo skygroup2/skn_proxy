@@ -36,7 +36,7 @@ defmodule Luminati.Super do
   end
 
   def handle_info(:check_tick, %{count: 0, user: user} = state) do
-    count = min(Skn.Config.get(:lum_proxy_max_scanner, 20), 20)
+    count = min(Skn.Config.get(:lum_proxy_max_scanner, 10), 20)
     parent = self()
     for _ <- 1..count do
       spawn(fn ->
