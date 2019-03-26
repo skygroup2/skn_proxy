@@ -36,13 +36,13 @@ defmodule Luminati.Super do
   end
 
   def handle_info(:check_tick, %{count: 0, user: user} = state) do
-    count = Skn.Config.get(:lum_proxy_max_scanner, 5)
-    count = if count > 64, do: 64, else: count
+    count = min(Skn.Config.get(:lum_proxy_max_scanner, 20), 20)
     parent = self()
     for _ <- 1..count do
       spawn(fn ->
+        seed = Enum.random(1..10) * 100
+        Process.sleep(seed)
         rand = Skn.Config.gen_id(:proxy_super_seq2)
-
         acc =
           DNSEx.lookup("customer-#{user}-session-#{rand}.zproxy.lum-superproxy.io")
         send(parent, {:search_result, acc})
