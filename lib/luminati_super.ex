@@ -4,7 +4,7 @@ defmodule Luminati.Super do
   """
   use GenServer
   require Logger
-  @name :proxy_super
+  @name :lum_super
   import Skn.Util,
     only: [
       reset_timer: 3
@@ -16,8 +16,8 @@ defmodule Luminati.Super do
 
   def init({user, zone, password}) do
     Process.flag(:trap_exit, true)
-    schedule(0)
-    {:ok, %{count: 0, user: user, zone: zone, password: password, update: 0}}
+    reset_timer(:check_tick_ref, :check_tick, 20000)
+    {:ok, %{count: 0, user: user, zone: zone, password: password}}
   end
 
   def handle_call(request, from, state) do
@@ -35,64 +35,27 @@ defmodule Luminati.Super do
     {:noreply, %{state | user: user, zone: zone, password: password}}
   end
 
-  def handle_info(:do_schedule, %{count: 0, user: user, update: update} = state) do
-    count = Skn.Config.get(:proxy_scanner_count, 5)
+  def handle_info(:check_tick, %{count: 0, user: user} = state) do
+    count = Skn.Config.get(:lum_proxy_max_scanner, 5)
     count = if count > 64, do: 64, else: count
-    proxy_super_country = Skn.Config.get(:proxy_super_country, [])
-    #        Logger.debug "start #{count} process to scan super proxy"
     parent = self()
-
     for _ <- 1..count do
       spawn(fn ->
-        seed = Skn.Config.get(:proxy_auth_seq_seed)
         rand = Skn.Config.gen_id(:proxy_super_seq2)
 
         acc =
-          if is_list(proxy_super_country) and length(proxy_super_country) > 0 do
-            cc = Enum.at(proxy_super_country, rem(count, length(proxy_super_country)))
-
-            DNSEx.lookup(
-              "customer-#{user}-session-#{seed}#{rand}-servercountry-#{cc}.zproxy.lum-superproxy.io"
-            )
-          else
-            DNSEx.lookup("customer-#{user}-session-#{seed}#{rand}.zproxy.lum-superproxy.io")
-          end
-
+          DNSEx.lookup("customer-#{user}-session-#{rand}.zproxy.lum-superproxy.io")
         send(parent, {:search_result, acc})
       end)
     end
 
-    ts_now = :erlang.system_time(:millisecond)
-    diff = ts_now - update
-    old = Skn.Config.get(:proxy_super_update, 1200_000)
-
-    if diff >= old do
-      try do
-        cnodes = :erlang.nodes()
-        nodes = Skn.Config.get(:slaves, [])
-        cnodes = Enum.filter(cnodes, fn x -> List.keyfind(nodes, x, 0) != nil end)
-
-        Enum.each(cnodes, fn x ->
-          Skn.DB.ProxyList.sync_super(x)
-        end)
-      catch
-        _, exp ->
-          Logger.error("sync super proxy failed #{exp}")
-      end
-
-      {:noreply, %{state | count: count, update: ts_now}}
-    else
-      {:noreply, %{state | count: count}}
-    end
+    {:noreply, %{state | count: count}}
   end
 
-  def handle_info(
-        {:search_result, proxies},
-        %{count: count, user: user, zone: zone, password: password} = state
-      ) do
-    #        Logger.debug "received #{length(proxies)} may be worked proxy"
+  def handle_info({:search_result, proxies},
+        %{count: count, user: user, zone: zone, password: password} = state) do
     if count <= 1 do
-      schedule(Skn.Config.get(:tm_proxy_scanner, 60000))
+      reset_timer(:check_tick_ref, :check_tick, Skn.Config.get(:tm_lum_super_scan, 60000))
     end
 
     Enum.reduce(proxies, 0, fn x, acc ->
@@ -124,10 +87,6 @@ defmodule Luminati.Super do
   def terminate(reason, _state) do
     Logger.debug("stopped by #{inspect(reason)}")
     :ok
-  end
-
-  def schedule(iv) do
-    reset_timer(:schedule_ref, :do_schedule, iv)
   end
 
   def ping(ip) do
