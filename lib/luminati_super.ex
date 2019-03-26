@@ -103,8 +103,7 @@ defmodule Luminati.Super do
         {:ok, ret} ->
           if ret.status_code == 200 do
             x = Jason.decode!(GunEx.decode_gzip(ret))
-            svc = Map.get(x, "svc", %{})
-            Map.get(svc, "has_internet", 0) == 1
+            x["ip"] != nil
           else
             false
           end
