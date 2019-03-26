@@ -21,12 +21,12 @@ defmodule Luminati.Super do
   end
 
   def handle_call(request, from, state) do
-    Logger.warn("drop unknown call #{inspect(request)} from #{inspect(from)}")
-    {:reply, {:error, "badreq"}, state}
+    Logger.warn("drop call #{inspect(request)} from #{inspect(from)}")
+    {:reply, {:error, :badreq}, state}
   end
 
   def handle_cast(request, state) do
-    Logger.warn("drop unknown cast #{inspect(request)}")
+    Logger.warn("drop cast #{inspect(request)}")
     {:noreply, state}
   end
 
@@ -76,7 +76,7 @@ defmodule Luminati.Super do
   end
 
   def handle_info(msg, state) do
-    Logger.debug("drop unknown #{inspect(msg)}")
+    Logger.debug("drop info #{inspect(msg)}")
     {:noreply, state}
   end
 
