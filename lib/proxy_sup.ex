@@ -22,7 +22,7 @@ defmodule Skn.Proxy.Sup do
       modules: [Luminati.Super]
     ]
 
-    account = Skn.Config.get(:proxy_account)
+    account = Skn.Config.get(:lum_proxy_account)
     {:ok, _} = Supervisor.start_child(@name, worker(Luminati.Super, [account], opts))
   end
 
