@@ -60,7 +60,7 @@ defmodule Luminati.Super do
 
     Enum.reduce(proxies, 0, fn x, acc ->
       proxy = "http://#{x}:22225"
-      proxy_auth = {:lum, user, password, zone}
+      proxy_auth = {:lum, "lum-customer-#{user}-zone-#{zone}", password}
 
       incr =
         case ping(x) do
