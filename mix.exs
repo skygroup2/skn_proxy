@@ -22,9 +22,9 @@ defmodule SknProxy.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:skn_lib, git: "git@gitlab.com:gskynet2/skn_lib.git", branch: "master"},
-      {:skn_proto, git: "git@gitlab.com:gskynet2/skn_proto.git", branch: "master"},
-      {:skn_bus, git: "git@gitlab.com:gskynet2/skn_bus.git", branch: "master"},
+      {:skn_lib, git: "git@gitlab.com:gskynet_lib/skn_lib.git", branch: "master"},
+      {:skn_proto, git: "git@gitlab.com:gskynet_lib/skn_proto.git", branch: "master"},
+      {:skn_bus, git: "git@gitlab.com:gskynet_lib/skn_bus.git", branch: "master"},
       {:lager, "~> 3.6", override: true},
       {:ranch, "~> 1.7", override: true},
       {:cowboy, "~> 2.6"},
