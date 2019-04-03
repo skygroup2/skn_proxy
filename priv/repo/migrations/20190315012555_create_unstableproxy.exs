@@ -12,7 +12,7 @@ defmodule Skn.EA.Repo.Migrations.FreeProxy do
       add :zone,      :string,  default: "unstable", size: 20
       add :country,   :string,  default: "", size: 2
       add :status,    :integer, default: 0
-      info :map,       :integer, default: %{}
+      add :info,      :map,     default: %{}
       timestamps()
     end
     create index("skn_unstableproxy", [:address, :port], unique: true)

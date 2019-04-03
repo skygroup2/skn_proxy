@@ -6,7 +6,7 @@ defmodule Skn.EA.Repo.Migrations.CreateGeoIP do
     create_if_not_exists table(:skn_geoip, primary_key: false) do
       add :address,   :string,  primary_key: true, size: 50
       add :country,   :string,  default: "", size: 2
-      geo :map,       :integer, default: %{}
+      add :geo,       :map,     default: %{}
       timestamps()
     end
   end
