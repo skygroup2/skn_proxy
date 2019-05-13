@@ -28,8 +28,8 @@ defmodule SknProxy.MixProject do
       {:lager, "~> 3.6", override: true},
       {:ranch, "~> 1.7", override: true},
       {:cowboy, "~> 2.6"},
-      {:ecto, "~> 3.0"},
-      {:ecto_sql, "~> 3.0"},
+      {:ecto, "~> 3.1"},
+      {:ecto_sql, "~> 3.1"},
       {:postgrex, "~> 0.14.1"},
     ]
   end

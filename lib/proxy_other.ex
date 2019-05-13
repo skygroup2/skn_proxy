@@ -96,7 +96,8 @@ defmodule ProxyOther do
   end
 
   def grab_fine_proxy(username, password, proxy_ip) do
-    x = GunEx.http_request("GET", "http://account.fineproxy.org/api/getproxy/?format=txt&type=socksip&login=#{username}&password=#{password}", %{}, "", %{}, nil)
+    proxy_type = Skn.Config.get(:proxy_fine_type, "socksauth")
+    x = GunEx.http_request("GET", "http://account.fineproxy.org/api/getproxy/?format=txt&type=#{proxy_type}&login=#{username}&password=#{password}", %{}, "", %{}, nil)
     res2 = :binary.split x.body, "\r\n", [:global]
     res3 = Enum.map res2, fn (x) ->
       case String.split(x, ":") do
@@ -110,7 +111,8 @@ defmodule ProxyOther do
           case check_ipv4(ip) do
             {true, :public} ->
               {:ok, addr} = :inet.parse_ipv4_address(:erlang.binary_to_list(ip))
-              %{proxy: {:socks5, addr, port}, ip: ip, proxy_auth: nil, tag: :fineproxy, info: %{proxy_remote: format_remote_proxy(proxy_ip)}}
+              proxy_auth = if proxy_type == "socksauth",  do: {username, password}, else: nil
+              %{proxy: {:socks5, addr, port}, ip: ip, proxy_auth: proxy_auth, tag: :fineproxy, info: %{proxy_remote: format_remote_proxy(proxy_ip)}}
             _ ->
               nil
           end
