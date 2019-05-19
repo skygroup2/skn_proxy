@@ -10,4 +10,5 @@ config :skn_proxy,
   password: "freevpn@#*",
   database: "freevpn",
   hostname: "127.0.0.1",
-  pool_size: 2
+  pool_size: 4,
+  log: false

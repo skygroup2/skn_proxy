@@ -2,12 +2,15 @@ defmodule ProxySizeDetector do
   @name :proxy_size_detector
   use GenServer
   require Logger
-  import Skn.Util, only: [reset_timer: 3]
+  import Skn.Util, only: [reset_timer: 3, dict_timestamp_check: 2]
   import Supervisor.Spec
   alias Skn.Proxy.SqlApi
 
   def start_luminati() do
-    Supervisor.start_child(:proxy_sup, supervisor(Skn.Proxy.Repo, []))
+    {:ok, _} = Supervisor.start_child(:proxy_sup, supervisor(Skn.Proxy.Repo, []))
+    Skn.Proxy.Sup.start_proxy_super()
+    opts = [id: __MODULE__, function: :start_link, restart: :transient, shutdown: 5000, modules: [__MODULE__]]
+    {:ok, _} = Supervisor.start_child(@name, worker(__MODULE__, [], opts))
   end
 
   def start_link() do
@@ -31,6 +34,36 @@ defmodule ProxySizeDetector do
     {:noreply, state}
   end
 
+  def handle_info(:check_tick, %{workers: workers} = state) do
+    reset_timer(:check_tick_ref, :check_tick, 20000)
+    if dict_timestamp_check(:ts_update_proxy, 300_000) do
+      super_proxy = Skn.DB.ProxyList.list_tag(:super)
+      Enum.each(super_proxy, fn x ->
+        {proxy, proxy_auth} = x.id
+        update_proxy(proxy, proxy_auth, 0)
+      end)
+    end
+    max_worker = Skn.Config.get(:max_worker, 5)
+    max_worker_request = Skn.Config.set(:max_worker_request, 20)
+    workers =
+      Enum.reduce(get_proxy(max_worker - Map.size(workers)), workers, fn {proxy, proxy_auth}, acc ->
+        if Map.get(workers, proxy, nil) == nil do
+          pid = spawn(fn ->
+            worker_proxy(proxy, proxy_auth, max_worker_request)
+          end)
+          Map.put(acc, proxy, %{pid: pid, proxy: proxy, proxy_auth: proxy_auth})
+        else
+          acc
+        end
+      end)
+    {:noreply, %{state| workers: workers}}
+  end
+
+  def handle_info({:finish, proxy, proxy_auth}, %{workers: workers} = state) do
+    update_proxy(proxy, proxy_auth, 1)
+    {:noreply, %{state| workers: Map.delete(workers, proxy)}}
+  end
+
   def handle_info(msg, state) do
     Logger.debug("drop info #{inspect(msg)}")
     {:noreply, state}
@@ -45,22 +78,28 @@ defmodule ProxySizeDetector do
     :ok
   end
 
-  def worker_proxy(proxy, proxy_auth, max_request) do
-    cc_chunks = Enum.shuffle(country_codes()) |> Enum.chunk_every(max_request)
-    Enum.each cc_chunks, fn cc_chunk ->
-      pre_result = Enum.map(cc_chunk, fn cc ->
-        Task.async(__MODULE__, :request_geoip, [proxy, proxy_auth, cc])
-      end)
-      result = Enum.map(pre_result, fn x -> Task.yield(x, 75000) end)
-      Enum.reduce(result, [], fn x, acc ->
-        case x do
-          {:ok, geoip} when is_map(geoip) ->
-            [geoip| acc]
-          _ ->
-            acc
-        end
-      end) |> Enum.uniq() |> SqlApi.insert_GeoIP_bulk()
+  def worker_proxy(proxy, proxy_auth, max_request, parent\\ nil) do
+    try do
+      cc_chunks = Enum.shuffle(country_codes()) |> Enum.chunk_every(max_request)
+      Enum.each cc_chunks, fn cc_chunk ->
+        pre_result = Enum.map(cc_chunk, fn cc ->
+          Task.async(__MODULE__, :request_geoip, [proxy, proxy_auth, cc])
+        end)
+        result = Enum.map(pre_result, fn x -> Task.yield(x, 75000) end)
+        Enum.reduce(result, [], fn x, acc ->
+          case x do
+            {:ok, geoip} when is_map(geoip) ->
+              [geoip| acc]
+            _ ->
+              acc
+          end
+        end) |> Enum.uniq() |> SqlApi.insert_GeoIP_bulk()
+      end
+    catch
+      _, _ ->
+        false
     end
+    if parent != nil, do: send(parent, {:finish, proxy, proxy_auth})
   end
 
   def create_db() do
@@ -74,12 +113,16 @@ defmodule ProxySizeDetector do
   end
 
   def get_proxy(proxy_num) do
-    ms = [{:"$1", [], [:"$1"]}]
-    case :ets.select(@name, ms, proxy_num) do
-      {v, _} ->
-        Enum.map(v, fn {{_, proxy}, proxy_auth} -> {proxy, proxy_auth} end)
-      _ ->
-        []
+    if proxy_num > 0 do
+      ms = [{:"$1", [], [:"$1"]}]
+      case :ets.select(@name, ms, proxy_num) do
+        {v, _} ->
+          Enum.map(v, fn {{_, proxy}, proxy_auth} -> {proxy, proxy_auth} end)
+        _ ->
+          []
+      end
+    else
+      []
     end
   end
 

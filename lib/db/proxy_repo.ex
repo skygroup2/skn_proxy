@@ -169,10 +169,11 @@ defmodule Skn.Proxy.SqlApi do
   end
 
   def insert_GeoIP_bulk(geos) do
+    ts_now = DateTime.utc_now
     geo_attrs = Enum.map(geos, fn geo ->
-      %{address: geo["ip"], country: String.downcase(geo["country"]), geo: geo}
+      %{address: geo["ip"], country: String.downcase(geo["country"]), geo: geo, inserted_at: ts_now, updated_at: ts_now}
     end)
-    Repo.insert_all(GeoIP, geo_attrs, [on_conflict: :nothing])
+    Repo.insert_all(GeoIP, geo_attrs, [timestamps: true, on_conflict: :nothing])
   end
 
   def get_GeoIP(address) do
