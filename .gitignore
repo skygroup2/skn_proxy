@@ -24,3 +24,7 @@ skn_proxy-*.tar
 
 mix.lock
 
+Mnesia.*
+
+log/*
+

@@ -168,6 +168,13 @@ defmodule Skn.Proxy.SqlApi do
     end
   end
 
+  def insert_GeoIP_bulk(geos) do
+    geo_attrs = Enum.map(geos, fn geo ->
+      %{address: geo["ip"], country: String.downcase(geo["country"]), geo: geo}
+    end)
+    Repo.insert_all(GeoIP, geo_attrs, [on_conflict: :nothing])
+  end
+
   def get_GeoIP(address) do
     Repo.get(GeoIP, address)
   end

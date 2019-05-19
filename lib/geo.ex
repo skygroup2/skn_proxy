@@ -333,7 +333,7 @@ defmodule GeoIP do
     :ok
   end
 
-  defp add_proxy_option(proxy, proxy_auth, opts) do
+  def add_proxy_option(proxy, proxy_auth, opts) do
     case proxy do
       nil ->
         opts
@@ -342,7 +342,7 @@ defmodule GeoIP do
     end
   end
 
-  defp default_proxy_option() do
+  def default_proxy_option() do
     %{
       recv_timeout: 25000,
       connect_timeout: 35000,

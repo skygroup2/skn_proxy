@@ -127,20 +127,15 @@ defmodule Luminati.Static do
     Logger.debug("schedule to check and update ...")
     count = Skn.Config.get(:proxy_scanner_count, 5)
     count = if count > 15, do: 15, else: count
-
-    proxy_static =
-      Skn.Config.get(:lum_proxy_account_static, [{"federico", "static", "mfotk5mb17iq"}])
-
+    proxy_static = Skn.Config.get(:lum_proxy_account_static, [])
     is_china = Skn.Config.get(:is_china, false)
-
     ips =
       Enum.concat(
         Enum.map(proxy_static, fn {u, z, p} ->
-          ips0 = list({u, z, p}, is_china)
 
+          ips0 = list({u, z, p}, is_china)
           if length(ips0) > 0 do
             indb = Skn.DB.ProxyList.list_tag_zone(:static, z)
-
             Enum.each(indb, fn x ->
               if x[:ip] in ips0 == false do
                 Skn.DB.ProxyList.delete(x[:id])
@@ -151,8 +146,7 @@ defmodule Luminati.Static do
           Enum.map(ips0, fn x0 ->
             id =
               if is_china == true do
-                {"http://zproxy.luminati-china.io:22225",
-                 {"lum-customer-#{u}-zone-#{z}-ip-#{x0}", p}}
+                {"http://zproxy.luminati-china.io:22225", {"lum-customer-#{u}-zone-#{z}-ip-#{x0}", p}}
               else
                 {"http://zproxy.luminati.io:22225", {"lum-customer-#{u}-zone-#{z}-ip-#{x0}", p}}
               end
