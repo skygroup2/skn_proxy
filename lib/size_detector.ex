@@ -20,6 +20,7 @@ defmodule ProxySizeDetector do
   def init(_args) do
     Process.flag(:trap_exit, true)
     create_db()
+    Skn.Counter.create_db()
     reset_timer(:check_tick_ref, :check_tick, 20000)
     {:ok, %{workers: %{}}}
   end
