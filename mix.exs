@@ -15,7 +15,7 @@ defmodule SknProxy.MixProject do
   def application do
     [
       mod: {Skn.Proxy, []},
-      extra_applications: [:logger, :mnesia]
+      extra_applications: [:logger, :lager, :jason, :mnesia, :postgrex, :skn_proto, :skn_lib]
     ]
   end
 
@@ -31,6 +31,7 @@ defmodule SknProxy.MixProject do
       {:ecto, "~> 3.1"},
       {:ecto_sql, "~> 3.1"},
       {:postgrex, "~> 0.14.1"},
+      {:distillery, "~> 2.0"}
     ]
   end
 end
