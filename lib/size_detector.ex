@@ -49,7 +49,7 @@ defmodule ProxySizeDetector do
       end)
     end
     max_worker = Skn.Config.get(:max_worker, 5)
-    max_worker_request = Skn.Config.set(:max_worker_request, 20)
+    max_worker_request = Skn.Config.get(:max_worker_request, 20)
     parent = self()
     workers =
       Enum.reduce(get_proxy(max_worker - Map.size(workers)), workers, fn {proxy, proxy_auth}, acc ->
@@ -104,6 +104,7 @@ defmodule ProxySizeDetector do
       end
     catch
       _, _ ->
+        Logger.debug("worker dead #{inspect(__STACKTRACE__)}")
         false
     end
     if parent != nil, do: send(parent, {:finish, proxy, proxy_auth})
