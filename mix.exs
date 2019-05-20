@@ -15,7 +15,16 @@ defmodule SknProxy.MixProject do
   def application do
     [
       mod: {Skn.Proxy, []},
-      extra_applications: [:logger, :lager, :jason, :mnesia, :postgrex, :skn_proto, :skn_lib]
+      extra_applications: [
+        :logger,
+        :lager,
+        :jason,
+        :mnesia,
+        :postgrex,
+        :skn_proto,
+        :skn_lib,
+        :logger_lager_backend
+      ]
     ]
   end
 
