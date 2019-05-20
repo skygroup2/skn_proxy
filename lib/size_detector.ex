@@ -2,7 +2,7 @@ defmodule ProxySizeDetector do
   @name :proxy_size_detector
   use GenServer
   require Logger
-  import Skn.Util, only: [reset_timer: 3, dict_timestamp_check: 2]
+  import Skn.Util, only: [reset_timer: 3, cancel_timer: 2, dict_timestamp_check: 2]
   import Supervisor.Spec
   alias Skn.Proxy.SqlApi
 
@@ -10,7 +10,7 @@ defmodule ProxySizeDetector do
     {:ok, _} = Supervisor.start_child(:proxy_sup, supervisor(Skn.Proxy.Repo, []))
     Skn.Proxy.Sup.start_proxy_super()
     opts = [id: __MODULE__, function: :start_link, restart: :transient, shutdown: 5000, modules: [__MODULE__]]
-    {:ok, _} = Supervisor.start_child(@name, worker(__MODULE__, [], opts))
+    {:ok, _} = Supervisor.start_child(:proxy_sup, worker(__MODULE__, [], opts))
   end
 
   def start_link() do
@@ -21,7 +21,6 @@ defmodule ProxySizeDetector do
     Process.flag(:trap_exit, true)
     create_db()
     Skn.Counter.create_db()
-    reset_timer(:check_tick_ref, :check_tick, 20000)
     {:ok, %{workers: %{}}}
   end
 
@@ -32,6 +31,11 @@ defmodule ProxySizeDetector do
 
   def handle_cast(request, state) do
     Logger.warn("drop cast #{inspect(request)}")
+    {:noreply, state}
+  end
+
+  def handle_info(:pause, state) do
+    cancel_timer(:check_tick_ref, :check_tick)
     {:noreply, state}
   end
 
@@ -61,6 +65,7 @@ defmodule ProxySizeDetector do
   end
 
   def handle_info({:finish, proxy, proxy_auth}, %{workers: workers} = state) do
+    Logger.debug("proxy #{proxy} finished")
     update_proxy(proxy, proxy_auth, 1)
     {:noreply, %{state| workers: Map.delete(workers, proxy)}}
   end
