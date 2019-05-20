@@ -23,7 +23,6 @@ defmodule SknProxy.MixProject do
         :postgrex,
         :skn_proto,
         :skn_lib,
-        :logger_lager_backend
       ]
     ]
   end
@@ -31,6 +30,7 @@ defmodule SknProxy.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
+      {:logger_lager_backend, git: "https://github.com/gskynet/logger_lager_backend.git", branch: "master"},
       {:skn_lib, git: "git@gitlab.com:gskynet_lib/skn_lib.git", branch: "master"},
       {:skn_proto, git: "git@gitlab.com:gskynet_lib/skn_proto.git", branch: "master"},
       {:skn_bus, git: "git@gitlab.com:gskynet_lib/skn_bus.git", branch: "master"},
