@@ -180,7 +180,7 @@ defmodule S5Proxy do
               {:error, proxy}
 
             _, exp ->
-              Logger.debug("proxy #{inspect(ip)} blocked by #{inspect(exp)}")
+              Logger.debug("proxy #{inspect(ip)} blocked by #{inspect(exp)}/ #{inspect __STACKTRACE__}")
               {:error, proxy}
           end
         end)
