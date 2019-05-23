@@ -100,7 +100,9 @@ defmodule ProxySizeDetector do
             _ ->
               acc
           end
-        end) |> Enum.uniq() |> SqlApi.insert_GeoIP_bulk()
+        end)
+        |> Enum.uniq()
+        |> Enum.each(fn x -> SqlApi.insert_GeoIP(x) end)
       end
     catch
       _, exp ->

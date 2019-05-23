@@ -177,6 +177,15 @@ defmodule Skn.Proxy.SqlApi do
     Repo.insert_all(GeoIP, geo_attrs, [on_conflict: on_conflict, conflict_target: :address])
   end
 
+  def insert_GeoIP(geo) do
+    ts_now = DateTime.utc_now()
+    on_conflict = [set: [updated_at: ts_now]]
+    attrs = %{address: geo["ip"], country: String.downcase(geo["country"]), geo: geo, inserted_at: ts_now, updated_at: ts_now}
+    %GeoIP{}
+    |> GeoIP.changeset(attrs)
+    |> Repo.insert([on_conflict: on_conflict, conflict_target: :address])
+  end
+
   def select_GeoIP_group(updated_age\\ 0) do
     query =
       if updated_age == 0 do
