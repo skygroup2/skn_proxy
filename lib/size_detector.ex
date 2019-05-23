@@ -103,8 +103,8 @@ defmodule ProxySizeDetector do
         end) |> Enum.uniq() |> SqlApi.insert_GeoIP_bulk()
       end
     catch
-      _, _ ->
-        Logger.debug("worker dead #{inspect(__STACKTRACE__)}")
+      _, exp ->
+        Logger.debug("worker dead (#{inspect exp}) #{inspect(__STACKTRACE__)}")
         false
     end
     if parent != nil, do: send(parent, {:finish, proxy, proxy_auth})
