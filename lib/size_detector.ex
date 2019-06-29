@@ -52,7 +52,7 @@ defmodule ProxySizeDetector do
     max_worker_request = Skn.Config.get(:max_worker_request, 20)
     parent = self()
     workers =
-      Enum.reduce(get_proxy(max_worker - Map.size(workers)), workers, fn {proxy, proxy_auth}, acc ->
+      Enum.reduce(get_proxy(max_worker - map_size(workers)), workers, fn {proxy, proxy_auth}, acc ->
         if Map.get(workers, proxy, nil) == nil do
           pid = spawn(fn ->
             worker_proxy(proxy, proxy_auth, max_worker_request, parent)
