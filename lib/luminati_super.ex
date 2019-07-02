@@ -75,6 +75,10 @@ defmodule Luminati.Super do
     {:noreply, %{state | count: count - 1}}
   end
 
+  def handle_info({:gun_down, _, _, _, _, _, _}, state) do
+    {:noreply, state}
+  end
+
   def handle_info(msg, state) do
     Logger.debug("drop info #{inspect(msg)}")
     {:noreply, state}
