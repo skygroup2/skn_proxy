@@ -152,7 +152,7 @@ defmodule ProxyOther do
   end
 
   def format_remote_proxy(seed, addr) when is_list(addr) do
-    id = rem(:erlang.phash2(addr), length(addr))
+    id = rem(:erlang.phash2(seed), length(addr))
     format_remote_proxy(seed, Enum.at(addr, id))
   end
 
