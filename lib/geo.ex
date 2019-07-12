@@ -99,7 +99,7 @@ defmodule GeoIP do
     end
   end
 
-  def query_by_vpn({proxy, proxy_auth}) do
+  def query_by_vpn({proxy, proxy_auth}, retry\\ true) do
     url = "http://lumtest.com/myip.json"
 
     headers = %{
@@ -122,7 +122,7 @@ defmodule GeoIP do
 
         {:error, reason} when reason in [:timeout, :connect_timeout, :proxy_error, :econnrefused, :ehostunreach] ->
           case proxy do
-            {:socks5, h, _p} ->
+            {:socks5, h, _p} when retry == true ->
               query_by_ip(:inet.ntoa(h))
             _ ->
               {:error, reason}
