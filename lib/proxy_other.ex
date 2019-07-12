@@ -84,7 +84,7 @@ defmodule ProxyOther do
           case check_ipv4(ip) do
             {true, :public} ->
               {:ok, addr} = :inet.parse_ipv4_address(:erlang.binary_to_list(ip))
-              %{proxy: {:socks5, addr, port}, ip: ip, proxy_auth: nil, tag: :hulk, info: %{proxy_remote: format_remote_proxy(proxy_ip)}}
+              %{proxy: {:socks5, addr, port}, ip: ip, proxy_auth: nil, tag: :hulk, info: %{proxy_remote: format_remote_proxy(addr, proxy_ip)}}
             _ ->
               nil
           end
@@ -112,7 +112,7 @@ defmodule ProxyOther do
             {true, :public} ->
               {:ok, addr} = :inet.parse_ipv4_address(:erlang.binary_to_list(ip))
               proxy_auth = if proxy_type == "socksauth",  do: {username, password}, else: nil
-              %{proxy: {:socks5, addr, port}, ip: ip, proxy_auth: proxy_auth, tag: :fineproxy, info: %{proxy_remote: format_remote_proxy(proxy_ip)}}
+              %{proxy: {:socks5, addr, port}, ip: ip, proxy_auth: proxy_auth, tag: :fineproxy, info: %{proxy_remote: format_remote_proxy(addr, proxy_ip)}}
             _ ->
               nil
           end
@@ -138,16 +138,12 @@ defmodule ProxyOther do
     end
   end
 
-  def format_remote_proxy(addr) when is_tuple(addr) do
+  def format_remote_proxy(_seed, addr) when is_tuple(addr) do
     {addr, 25555}
   end
 
-  def format_remote_proxy(addr) when is_binary(addr) do
-    format_remote_proxy(:erlang.binary_to_list(addr))
-  end
-
-  def format_remote_proxy(addr) when is_list(addr) do
-    case :inet.parse_ipv4strict_address(addr) do
+  def format_remote_proxy(_seed, addr) when is_binary(addr) do
+    case :inet.parse_ipv4strict_address(String.to_charlist(addr)) do
       {:ok, x} ->
         {x, 25555}
       _ ->
@@ -155,7 +151,12 @@ defmodule ProxyOther do
     end
   end
 
-  def format_remote_proxy(_) do
+  def format_remote_proxy(seed, addr) when is_list(addr) do
+    id = rem(:erlang.phash2(addr), length(addr))
+    format_remote_proxy(seed, Enum.at(addr, id))
+  end
+
+  def format_remote_proxy(_, _) do
     nil
   end
 end
