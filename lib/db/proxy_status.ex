@@ -181,7 +181,7 @@ defmodule Skn.DB.ProxyList do
       case Skn.DB.ProxyList.get(x[:id]) do
         c when is_map(c) ->
           {proxy, _} = x[:id]
-          id1 = {proxy, {:sessioner, "lum-customer-#{account}-zone-#{zone}", password}}
+          id1 = {proxy, {:lum, "lum-customer-#{account}-zone-#{zone}", password}}
           c1 = Map.put c, :id, id1
           Skn.DB.ProxyList.delete(x[:id])
           Skn.DB.ProxyList.write(c1)
