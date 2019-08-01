@@ -111,8 +111,11 @@ defmodule ProxyOther do
           case check_ipv4(ip) do
             {true, :public} ->
               {:ok, addr} = :inet.parse_ipv4_address(:erlang.binary_to_list(ip))
+              proxy = {:socks5, addr, port}
               proxy_auth = if proxy_type == "socksauth",  do: {username, password}, else: nil
-              %{proxy: {:socks5, addr, port}, ip: ip, proxy_auth: proxy_auth, tag: :fineproxy, info: %{proxy_remote: format_remote_proxy(addr, proxy_ip)}}
+              all_proxy_ip = get_overlap_remote(proxy, proxy_auth, proxy_ip)
+              %{proxy: proxy, ip: ip, proxy_auth: proxy_auth, tag: :fineproxy,
+                info: %{proxy_remote: format_remote_proxy(addr, all_proxy_ip), remote_ips: all_proxy_ip}}
             _ ->
               nil
           end
@@ -138,6 +141,15 @@ defmodule ProxyOther do
     end
   end
 
+  def get_overlap_remote(proxy, proxy_auth, proxy_ip) do
+    case Skn.DB.ProxyList.get({proxy, proxy_auth}) do
+      %{info: i} ->
+        (Map.get(i, :remote_ips, []) ++ List.wrap(proxy_ip)) |> Enum.uniq()
+      _ ->
+        List.wrap(proxy_ip)
+    end
+  end
+
   def format_remote_proxy(_seed, addr) when is_tuple(addr) do
     {addr, 25555}
   end
@@ -153,7 +165,7 @@ defmodule ProxyOther do
 
   def format_remote_proxy(seed, addr) when is_list(addr) do
     id = rem(:erlang.phash2(seed), length(addr))
-    format_remote_proxy(seed, Enum.at(addr, id))
+    format_remote_proxy(seed, Enum.at(Enum.sort(addr), id))
   end
 
   def format_remote_proxy(_, _) do
