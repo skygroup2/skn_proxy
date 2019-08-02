@@ -19,13 +19,18 @@ defmodule GeoIP do
   @name :proxy_geo
 
   def update({requester, ip, keeper}, is_static) do
-    flag = case SqlApi.get_GeoIP(ip) do
-    %{geo: %{"country" => cc, "ip" => xip}} ->
-        send requester, {:update_geo, ip, keeper, %{"country" => String.downcase(cc), "ip" => xip}, is_static}
-        true
-    _ ->
-       false
-    end
+    flag =
+      if Skn.Config.get(:collect_proxy_geo, false) do
+        case SqlApi.get_GeoIP(ip) do
+        %{geo: %{"country" => cc, "ip" => xip}} ->
+            send requester, {:update_geo, ip, keeper, %{"country" => String.downcase(cc), "ip" => xip}, is_static}
+            true
+        _ ->
+           false
+        end
+      else
+        false
+      end
     if flag == false do
         GenServer.cast(@name, {:queue, {requester, ip, keeper}, is_static})
     end
@@ -33,25 +38,27 @@ defmodule GeoIP do
 
   def update(p, is_static) when is_map(p) do
     ip = p[:ip]
-
     if is_static == true or is_static == :unstable do
       flag =
-        case SqlApi.get_GeoIP(ip) do
-          %{geo: %{"country" => cc, "ip" => xip}} ->
-            p_attrs =
-              Map.merge(normalize_hog(p), %{
-                real_ip: xip,
-                country: String.downcase(cc),
-                status: SqlApi.proxy_status_geo()
-              })
+        if Skn.Config.get(:collect_proxy_geo, false) do
+          case SqlApi.get_GeoIP(ip) do
+            %{geo: %{"country" => cc, "ip" => xip}} ->
+              p_attrs =
+                Map.merge(normalize_hog(p), %{
+                  real_ip: xip,
+                  country: String.downcase(cc),
+                  status: SqlApi.proxy_status_geo()
+                })
 
-            SqlApi.update_proxy(p_attrs)
-            true
+              SqlApi.update_proxy(p_attrs)
+              true
 
-          _ ->
-            false
+            _ ->
+              false
+          end
+        else
+          false
         end
-
       if flag == false do
         GenServer.cast(@name, {:queue, p, is_static})
       end
