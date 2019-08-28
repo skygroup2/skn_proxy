@@ -5,7 +5,7 @@ defmodule Skn.DB.ProxyIP2 do
   total_x => total of counter x
   status:
   account: account/ip/time
-  week: week/ip/time
+  farm: farm/ip/time
   pid:
   nnode:
   geo:
@@ -29,14 +29,14 @@ defmodule Skn.DB.ProxyIP2 do
     is_static = (is_staticx == true or is_staticx == :unstable)
     case get(ip) do
       nil ->
-        ts_now = :erlang.system_time(:millisecond)
+        ts_now = System.system_time(:millisecond)
         write(
           ip,
           keeper,
           %{
             status: :ok,
             account: 0,
-            week: 0,
+            farm: 0,
             total_account: 0,
             total_task: 0,
             nnode: nil,
@@ -63,7 +63,7 @@ defmodule Skn.DB.ProxyIP2 do
   end
 
   def update_status(ip, keeper, status) do
-    ts_now = :erlang.system_time(:millisecond)
+    ts_now = System.system_time(:millisecond)
     case get(ip) do
       nil ->
         banned = if status == :banned, do: ts_now, else: 0
@@ -73,7 +73,7 @@ defmodule Skn.DB.ProxyIP2 do
           %{
             status: status,
             account: 0,
-            week: 0,
+            farm: 0,
             total_account: 0,
             total_task: 0,
             nnode: nil,
@@ -117,8 +117,8 @@ defmodule Skn.DB.ProxyIP2 do
     :mnesia.dirty_write(:proxy_ip2, obj)
   end
 
-  def update_week(ip, keeper, pid, incr) do
-    ts_now = :erlang.system_time(:millisecond)
+  def update_farm(ip, keeper, pid, incr) do
+    ts_now = System.system_time(:millisecond)
     case get(ip) do
       nil ->
         nil
@@ -130,10 +130,10 @@ defmodule Skn.DB.ProxyIP2 do
         else
           {ts_now, [ts_now | v1[:info][:total_pinned]]}
         end
-        {week, total_task} = if incr == 0 or incr == :keep do
-          {v1[:info][:week], v1[:info][:total_task]}
+        {farm, total_task} = if incr == 0 or incr == :keep do
+          {v1[:info][:farm], v1[:info][:total_task]}
         else
-          {v1[:info][:week] + 1, v1[:info][:total_task] + 1}
+          {v1[:info][:farm] + 1, v1[:info][:total_task] + 1}
         end
         {updated, total_updated} = if incr == 0 or incr == :keep do
           {v1[:info][:updated], v1[:info][:total_updated]}
@@ -144,7 +144,7 @@ defmodule Skn.DB.ProxyIP2 do
         total_updated = Enum.slice(total_updated, 0, 5)
         info1 = Map.merge(v1[:info],
           %{
-            week: week,
+            farm: farm,
             total_task: total_task,
             pid: pid,
             nnode: nnode,
@@ -169,7 +169,7 @@ defmodule Skn.DB.ProxyIP2 do
           # optimize mnesia write
           :ok
         else
-          ts_now = :erlang.system_time(:millisecond)
+          ts_now = System.system_time(:millisecond)
           account = v1[:info][:account] + incr
           total_built = [ts_now | v1[:info][:total_built]]
           info1 = Map.merge(v1[:info], %{account: account, built: ts_now, total_built: total_built})
@@ -186,14 +186,14 @@ defmodule Skn.DB.ProxyIP2 do
     :mnesia.dirty_match_object(:proxy_ip2, {:proxy_ip2, :_, :_, :_})
   end
 
-  def get_by_status(status0, age \\ 3600_000, week0 \\ 1) do
+  def get_by_status(status0, age \\ 3600_000, farm0 \\ 1) do
     ips = get_all()
-    age = if age == :all, do: 0, else: :erlang.system_time(:millisecond) - age
+    age = if age == :all, do: 0, else: System.system_time(:millisecond) - age
     ips1 = Enum.filter(
       ips,
       fn {:proxy_ip2, _ip, _keeper, info} ->
         ((info[:updated] >= age) or (info[:pinned] >= age) or (info[:banned] >= age) or (info[:reused] >= age) or
-         (info[:created] >= age)) and (info[:status] == status0) and (info[:week] == week0 or week0 == :all)
+         (info[:created] >= age)) and (info[:status] == status0) and (farm0 == :all or info[:farm] == farm0)
       end
     )
     Enum.map(
