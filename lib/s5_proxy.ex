@@ -193,12 +193,10 @@ defmodule S5Proxy do
     Enum.reduce(status, 0, fn (x, acc) ->
       case x do
         {:ok, {:ok, y}} ->
-          GeoIP.update(y, true)
           y1 = Map.put(y, :incr, 0)
           Skn.DB.ProxyList.update_failed(y1)
           acc + 1
         {:ok, {:error, y}} ->
-          GeoIP.update(y, true)
           y1 = Map.put(y, :incr, 1)
           Skn.DB.ProxyList.update_failed(y1)
           acc

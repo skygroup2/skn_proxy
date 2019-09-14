@@ -62,18 +62,6 @@ defmodule Skn.Proxy.Sup do
     {:ok, _} = Supervisor.start_child(@name, worker(ProxyOther, [], opts))
   end
 
-  def start_geoip() do
-    opts = [
-      id: GeoIP,
-      function: :start_link,
-      restart: :transient,
-      shutdown: 5000,
-      modules: [GeoIP]
-    ]
-
-    {:ok, _} = Supervisor.start_child(@name, worker(GeoIP, [], opts))
-  end
-
   def start_proxy_hook() do
     http_port = Skn.Config.get(:web_proxy_port, nil)
     if is_integer(http_port) and http_port > 1024 and http_port < 65535 do

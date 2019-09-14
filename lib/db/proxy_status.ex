@@ -216,46 +216,6 @@ defmodule Skn.DB.ProxyList do
     :mnesia.dirty_delete(:proxy_status, id)
   end
 
-  def ensure_geo(%{ip: ip, info: info} = p) do
-    case info do
-      %{geo: geo} when is_map(geo) ->
-        geo["country"]
-      %{failed: 0} ->
-        case Skn.Proxy.SqlApi.get_GeoIP(ip) do
-        %{geo: geo} when is_map(geo) ->
-            update_geo(ip, GeoIP.compress_geo(geo))
-            geo["country"]
-        _ ->
-            GeoIP.update(p, true)
-            nil
-        end
-      _ ->
-        nil
-    end
-  end
-
-  def list_tag_by_cc(tag, assign, cc) do
-    mh = {:proxy_status, :"$1", :"$2", :"$3", :"$4", :"$5"}
-    mg = [{:andalso, {:==, :"$3", tag}, {:==, :"$4", assign}}]
-    mr = {{:"$1", :"$2", :"$5"}}
-    ips = :mnesia.dirty_select(:proxy_status, [{mh, mg, [mr]}])
-    Enum.reduce ips, [], fn ({id, ip, info}, acc) ->
-      failed = Map.get(info, :failed, 0)
-      case info do
-        _ when cc == nil ->
-          [%{id: id, ip: ip, info: info, tag: tag, assign: assign} | acc]
-        %{geo: geo} when is_map(geo) and failed == 0 ->
-          if String.downcase(geo["country"]) == cc do
-            [%{id: id, ip: ip, info: info, tag: tag, assign: assign} | acc]
-          else
-            acc
-          end
-        _ ->
-          acc
-      end
-    end
-  end
-
   def list_tag_by_failed(tag \\ :static, failed \\ 0) do
     mh = {:proxy_status, :"$1", :"$2", :"$3", :"$4", :"$5"}
     mg = [{:==, :"$3", tag}]
@@ -264,150 +224,6 @@ defmodule Skn.DB.ProxyList do
     ips = Enum.map ips, fn {id, ip, assign, info} -> %{id: id, ip: ip, tag: tag, assign: assign, info: info} end
     Enum.filter ips, fn x ->
       Map.get(x[:info], :failed, 0) > failed
-    end
-  end
-
-  def assign_fm(tag \\ :static) do
-    if node() == Skn.Config.get(:master) do
-      mh = {:proxy_status, :"$1", :"$2", :"$3", :"$4", :"$5"}
-      mg = [{:andalso, {:==, :"$3", tag}, {:==, :"$4", nil}}]
-      mr = {{:"$1", :"$2", :"$5"}}
-      ips = :mnesia.dirty_select(:proxy_status, [{mh, mg, [mr]}])
-      ips = Enum.filter ips, fn {_, ip, info} ->
-        failed = Map.get info, :failed, 0
-        case Skn.DB.ProxyIP2.read(ip) do
-          %{
-            info: %{
-              status: :ok
-            }
-          } when failed == 0 -> true
-          _ -> false
-        end
-      end
-      ips = Enum.filter ips, fn {id, ip, info} ->
-        ensure_geo(%{id: id, ip: ip, tag: tag, info: info}) != nil and Map.get(info, :failed, 0) == 0
-      end
-      nodes = Enum.sort Skn.Config.get(:slaves, [])
-      num_node = length(nodes)
-      if num_node > 0 do
-        Enum.each ips, fn {id, ip, info} ->
-          h = :erlang.phash2(ip)
-          i = rem(h, num_node)
-          write(%{id: id, ip: ip, tag: tag, assign: Enum.at(nodes, i), info: info})
-        end
-      end
-    end
-  end
-
-  def assign_search(count, max_search \\ 25, is_socks \\ false) do
-    if node() == Skn.Config.get(:master) do
-      mh = {:proxy_status, :"$1", :"$2", :"$3", :"$4", :"$5"}
-      mg = [
-        {
-          :andalso,
-          {:==, :"$3", :static},
-          {:orelse, {:==, :"$4", nil}, {:==, :"$4", :search}}
-        }
-      ]
-      mr = {{:"$1", :"$2", :"$4", :"$5"}}
-      ips = :mnesia.dirty_select(:proxy_status, [{mh, mg, [mr]}])
-      ips_ok = Enum.filter ips, fn {id, _, _, info} ->
-        is_ok = Map.get(info, :failed, 1) == 0
-        case id do
-          {{:socks5, _, _}, _} ->
-            is_socks
-          _ ->
-            is_ok
-        end
-      end
-      ips0 = Enum.filter ips, fn {_, _, assign, info} ->
-        case info do
-          %{search_id: search_id, failed: failed} when assign == :search and search_id != nil and failed == 0 ->
-            true
-          _ ->
-            false
-        end
-      end
-      if length(ips0) < count do
-        ipsx = ips0 ++ Enum.slice((ips_ok -- ips0), 0, count - length(ips0))
-        Enum.reduce ipsx, 1, fn ({id, ip, _, info}, acc) ->
-          search_id = Map.get(info, :search_id, 0)
-          failed = Map.get(info, :failed, 1)
-          if failed == 0 and search_id == 0 or search_id == nil do
-            search_id1 = rem(acc, max_search)
-            search_id1 = if search_id1 == 0, do: max_search, else: search_id1
-            info1 = Map.put(info, :search_id, search_id1)
-            v1 = %{id: id, ip: ip, tag: :static, assign: :search, info: info1}
-            Skn.DB.ProxyList.write(v1)
-          end
-          acc + 1
-        end
-      end
-    end
-  end
-
-  def assign_ah(count, zone \\ ["s5"]) do
-    if node() == Skn.Config.get(:master) do
-      mh = {:proxy_status, :"$1", :"$2", :"$3", :"$4", :"$5"}
-      mg = [
-        {
-          :andalso,
-          {:==, :"$3", :static},
-          {:orelse, {:==, :"$4", nil}, {:==, :"$4", :ah}}
-        }
-      ]
-      mr = {{:"$1", :"$2", :"$5"}}
-      ips = :mnesia.dirty_select(:proxy_status, [{mh, mg, [mr]}])
-      {ah, avail, banned} = Enum.reduce ips, {[], [], []}, fn ({id, ip, info}, {m, a, b}) ->
-        case Skn.DB.ProxyIP2.read(ip) do
-          %{
-            info: %{
-              status: :banned
-            }
-          } ->
-            {m, a, [{id, ip, info} | b]}
-          _ ->
-            case info do
-              %{zone: z} ->
-                if z in zone do
-                  {m, [{id, ip, info} | a], b}
-                else
-                  {m, a, b}
-                end
-              _ ->
-                {m, a, b}
-            end
-        end
-      end
-      Logger.debug "AH: #{length(ah)}, available: #{length(avail)}, banned: #{length(banned)}"
-      if length(ah) >= count do
-        thin = Enum.slice ah, count, (length(ah) - count)
-        Enum.each thin, fn {id, ip, info} ->
-          write(%{id: id, ip: ip, tag: :static, assign: nil, info: info})
-        end
-      else
-        more = Enum.slice(avail, 0, count - length(ah))
-        Logger.debug "assigned #{length(more)} proxy to AH"
-        Enum.each more, fn {id, ip, info} ->
-          write(%{id: id, ip: ip, tag: :static, assign: :ah, info: info})
-        end
-      end
-    end
-  end
-
-  def list_tag_zone(tag, zone) do
-    ips = list_all_tag(tag)
-    Enum.filter ips, fn x ->
-      case x do
-        %{
-          info: %{
-            zone: z
-          }
-        } ->
-          z == zone
-        _ ->
-          false
-      end
     end
   end
 
@@ -424,10 +240,6 @@ defmodule Skn.DB.ProxyList do
     Enum.filter all, fn x ->
       (x[:info][:status] == status) and (zone == :all or x[:info][:zone] == zone)
     end
-  end
-
-  def list_tag_search() do
-    list_tag(:static, :search)
   end
 
   def list_tag(tag, assign \\ nil, limit \\ 0) do
@@ -453,21 +265,15 @@ defmodule Skn.DB.ProxyList do
     end
   end
 
-  def import_s5(prefix, range, port, user, pass) do
-    Enum.each range, fn x ->
-      ipstr = "#{prefix}.#{x}"
-      {:ok, ip} = :inet.parse_address(:erlang.binary_to_list(ipstr))
-      p = %{
-        id: {{:socks5, ip, port}, {user, pass}},
-        ip: ipstr,
-        tag: :static,
-        assign: nil,
-        info: %{
-          zone: "s5",
-          failed: 1
-        }
-      }
-      write(p)
+  def list_tag_zone(tag, zone) do
+    ips = list_all_tag(tag)
+    Enum.filter ips, fn x ->
+      case x do
+        %{info: %{ zone: z}} ->
+          z == zone
+        _ ->
+          false
+      end
     end
   end
 end

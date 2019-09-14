@@ -155,7 +155,7 @@ defmodule ProxySizeDetector do
       "connection" => "close"
     }
     try do
-      proxy_opts = GeoIP.add_proxy_option(proxy, format_proxy_auth(proxy_auth, cc), GeoIP.default_proxy_option())
+      proxy_opts = add_proxy_option(proxy, format_proxy_auth(proxy_auth, cc), default_proxy_option())
       case GunEx.http_request("GET", url, headers, "", proxy_opts, nil) do
         response when is_map(response) ->
           if response.status_code == 200 do
@@ -171,6 +171,25 @@ defmodule ProxySizeDetector do
         Logger.error("Query GeoIP #{proxy} => #{inspect System.stacktrace()}")
         {:error, exp}
     end
+  end
+
+  def add_proxy_option(proxy, proxy_auth, opts) do
+    case proxy do
+      nil ->
+        opts
+      _ ->
+        Map.merge(opts, %{proxy: proxy, proxy_auth: proxy_auth})
+    end
+  end
+
+  def default_proxy_option() do
+    %{
+      recv_timeout: 25000,
+      connect_timeout: 35000,
+      retry: 0,
+      retry_timeout: 5000,
+      transport_opts: [{:reuseaddr, true}, {:reuse_sessions, false}, {:linger, {false, 0}}, {:versions, [:"tlsv1.2"]}]
+    }
   end
 
   defp format_proxy_auth(proxy_auth, cc) do
