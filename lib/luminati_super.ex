@@ -64,8 +64,8 @@ defmodule Luminati.Super do
 
       incr =
         case ping(x) do
-          true -> 0
           false -> 1
+          _ -> 0
         end
 
       Skn.DB.ProxyList.update_failed(%{id: {proxy, proxy_auth}, ip: x, incr: incr, tag: :super})
