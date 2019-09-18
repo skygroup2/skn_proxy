@@ -94,29 +94,22 @@ defmodule Luminati.Super do
   end
 
   def ping(ip) do
-    opts = %{
-      recv_timeout: 25000,
-      connect_timeout: 35000,
-      retry: 0,
-      retry_timeout: 5000,
-      transport_opts: [{:reuseaddr, true}, {:reuse_sessions, false}, {:linger, {false, 0}}, {:versions, [:"tlsv1.2"]}]
-    }
-
+    opts = GunEx.default_option(20000, 10000)
     try do
       case GunEx.http_request("GET", "http://#{ip}:22225/ping", %{"connection" => "close"}, "", opts, nil) do
         ret when is_map(ret) ->
           if ret.status_code == 200 do
             x = Jason.decode!(GunEx.decode_gzip(ret))
-            x["ip"] != nil
+            x
           else
             false
           end
-
         _ ->
           false
       end
     catch
-      _, _ -> false
+      _, _ ->
+        false
     end
   end
 end
