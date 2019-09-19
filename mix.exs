@@ -39,8 +39,7 @@ defmodule SknProxy.MixProject do
       {:cowboy, "~> 2.6"},
       {:ecto, "~> 3.1"},
       {:ecto_sql, "~> 3.1"},
-      {:postgrex, "~> 0.14.1"},
-      {:distillery, "~> 2.0"}
+      {:postgrex, "~> 0.14.1"}
     ]
   end
 end
