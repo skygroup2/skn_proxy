@@ -34,12 +34,12 @@ defmodule SknProxy.MixProject do
       {:skn_lib, git: "git@gitlab.com:gskynet_lib/skn_lib.git", branch: "master"},
       {:skn_proto, git: "git@gitlab.com:gskynet_lib/skn_proto.git", branch: "master"},
       {:skn_bus, git: "git@gitlab.com:gskynet_lib/skn_bus.git", branch: "master"},
-      {:lager, "~> 3.6", override: true},
+      {:lager, "~> 3.8", override: true},
       {:ranch, "~> 1.7", override: true},
       {:cowboy, "~> 2.6"},
-      {:ecto, "~> 3.1"},
-      {:ecto_sql, "~> 3.1"},
-      {:postgrex, "~> 0.14.1"}
+      {:ecto, "~> 3.2"},
+      {:ecto_sql, "~> 3.2"},
+      {:postgrex, "~> 0.15"}
     ]
   end
 end
