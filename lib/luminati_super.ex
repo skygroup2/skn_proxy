@@ -94,7 +94,7 @@ defmodule Luminati.Super do
   end
 
   def ping(ip) do
-    opts = GunEx.default_option(20000, 10000)
+    opts = GunEx.default_option(20000)
     try do
       case GunEx.http_request("GET", "http://#{ip}:22225/ping", %{"connection" => "close"}, "", opts, nil) do
         ret when is_map(ret) ->
