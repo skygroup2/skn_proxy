@@ -14,7 +14,6 @@ defmodule SknProxy.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
-      mod: {Skn.Proxy, []},
       extra_applications: [
         :logger,
         :lager,
@@ -36,7 +35,6 @@ defmodule SknProxy.MixProject do
       {:skn_bus, git: "git@gitlab.com:gskynet_lib/skn_bus.git", branch: "master"},
       {:lager, "~> 3.8", override: true},
       {:ranch, "~> 1.7", override: true},
-      {:cowboy, "~> 2.6"},
       {:ecto, "~> 3.4"},
       {:ecto_sql, "~> 3.4"},
       {:postgrex, "~> 0.15"}
