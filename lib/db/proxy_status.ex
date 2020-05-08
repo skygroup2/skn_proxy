@@ -92,9 +92,9 @@ defmodule Skn.DB.ProxyList do
   def list_all_tag(tag) do
     mh = {:proxy_status, :"$1", :"$2", :"$3", :"$4", :"$5"}
     mg = [{:==, :"$3", tag}]
-    mr = {{:"$1", :"$2", :"$4", :"$5"}}
-    ips = :mnesia.dirty_select(:proxy_status, [{mh, mg, [mr]}])
-    Enum.map ips, fn {id, ip, assign, info} -> %{id: id, ip: ip, tag: tag, assign: assign, info: info} end
+    mr = :"$_"
+    :mnesia.dirty_select(:proxy_status, [{mh, mg, [mr]}])
+    |> Enum.map(fn x -> to_map(x) end)
   end
 
   def list_tag(tag, assign \\ nil) do
@@ -105,7 +105,7 @@ defmodule Skn.DB.ProxyList do
       true ->
         [{:==, :"$3", tag}]
     end
-    mr = {{:"$1", :"$2", :"$4", :"$5"}}
+    mr = :"$_"
     :mnesia.dirty_select(:proxy_status, [{mh, mg, [mr]}])
     |> Enum.map(fn x -> to_map(x) end)
   end
