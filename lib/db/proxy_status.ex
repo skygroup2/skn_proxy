@@ -90,23 +90,23 @@ defmodule Skn.DB.ProxyList do
   end
 
   def list_all_tag(tag) do
-    mh = {:proxy_status, :"$1", :"$2", :"$3", :"$4", :"$5"}
-    mg = [{:==, :"$3", tag}]
-    mr = :"$_"
-    :mnesia.dirty_select(:proxy_status, [{mh, mg, [mr]}])
+    ms = [{{:proxy_status, :_, :_, :"$1", :_, :_}, [{:==, :"$1", tag}], [:"$_"]}]
+    :mnesia.dirty_select(:proxy_status, ms)
     |> Enum.map(fn x -> to_map(x) end)
   end
 
   def list_tag(tag, assign \\ nil) do
-    mh = {:proxy_status, :"$1", :"$2", :"$3", :"$4", :"$5"}
-    mg = cond do
+    ms = cond do
       assign != nil ->
-        [{:andalso, {:==, :"$3", tag}, {:==, :"$4", assign}}]
+        [{
+          {:proxy_status, :_, :_, :"$1", :"$2", :_},
+          [{:andalso, {:==, :"$1", tag}, {:==, :"$2", assign}}],
+          [:"$_"]
+        }]
       true ->
-        [{:==, :"$3", tag}]
+        [{{:proxy_status, :_, :_, :"$1", :_, :_}, [{:==, :"$1", tag}], [:"$_"]}]
     end
-    mr = :"$_"
-    :mnesia.dirty_select(:proxy_status, [{mh, mg, [mr]}])
+    :mnesia.dirty_select(:proxy_status, ms)
     |> Enum.map(fn x -> to_map(x) end)
   end
 
