@@ -3,21 +3,6 @@ defmodule Skn.DB.ProxyList do
   require Skn.Proxy.Repo
   require Logger
 
-  def to_file(file, tag \\ nil) do
-    data = :mnesia.dirty_all_keys(:proxy_status) |> Enum.map(fn x -> get(x) end)
-    data = if tag != nil do
-      Enum.filter(data, fn x -> x[:tag] == tag end)
-    else
-      data
-    end
-    Skn.Util.write_term_db(file, data)
-  end
-
-  def from_file(file) do
-    {:ok, data} = :file.consult file
-    Enum.each data, fn x -> write(x) end
-  end
-
   def to_map(c) do
     %{
       id: Skn.Proxy.Repo.proxy_status(c, :id),
