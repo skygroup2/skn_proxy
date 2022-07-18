@@ -19,7 +19,6 @@ defmodule SknProxy.MixProject do
         :lager,
         :jason,
         :mnesia,
-        :postgrex,
         :skn_proto,
         :skn_lib,
       ]
