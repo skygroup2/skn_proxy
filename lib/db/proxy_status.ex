@@ -1,5 +1,4 @@
 defmodule Skn.DB.ProxyList do
-  use Bitwise
   require Skn.Proxy.Repo
   require Logger
 
