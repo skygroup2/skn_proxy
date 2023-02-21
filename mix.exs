@@ -16,7 +16,6 @@ defmodule SknProxy.MixProject do
     [
       extra_applications: [
         :logger,
-        :lager,
         :jason,
         :mnesia,
         :skn_proto,
