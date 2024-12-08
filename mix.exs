@@ -18,7 +18,7 @@ defmodule SknProxy.MixProject do
         :logger,
         :jason,
         :mnesia,
-        :skn_proto,
+        :skn_lib,
       ]
     ]
   end
@@ -26,7 +26,7 @@ defmodule SknProxy.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:skn_proto, git: "git@github.com:skygroup2/skn_proto.git", branch: "main"},
+      {:skn_lib, git: "git@github.com:skygroup2/skn_lib.git", branch: "main"},
     ]
   end
 end
